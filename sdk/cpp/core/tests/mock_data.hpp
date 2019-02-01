@@ -25,9 +25,6 @@
 #include <iostream>
 #include "../src/path_api.hpp"
 #include "../src/ietf_parser.hpp"
-#include "config.hpp"
-#include "catch.hpp"
-
 
 // as we are requiring load module from module namespace(test_codec.cpp)
 // we have to provide mock data with module namespace to module name mapping
@@ -43,8 +40,9 @@ static std::unordered_map<std::string, ydk::path::Capability> test_openconfig_lo
     {"urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring", {"ietf-netconf-monitoring", ""}},
     {"urn:ietf:params:xml:ns:yang:ietf-interfaces", {"ietf-interfaces", ""}},
     {"http://cisco.com/ns/yang/ydk", {"ydk", ""}},
-    {"http://cisco.com/ns/yang/ydktest-sanity", {"ydktest-sanity", ""}}
-
+    {"http://cisco.com/ns/yang/ydktest-sanity", {"ydktest-sanity", ""}},
+    {"http://cisco.com/ns/yang/ydktest-action", {"ydktest-sanity-action", ""}},
+    {"http://cisco.com/ns/yang/ydktest-types", {"ydktest-types", ""}}
 };
 
 
@@ -84,6 +82,15 @@ public:
 
         return nullptr;
     }
+
+    std::shared_ptr<ydk::path::DataNode> invoke(ydk::path::DataNode& rpc) const
+    {
+        ydk::path::Codec s{};
+
+        std::cout << s.encode(rpc, ydk::EncodingFormat::XML, true) << std::endl;
+
+        return nullptr;
+    }
 private:
     std::string m_searchdir;
     std::vector<ydk::path::Capability> m_capabilities;
@@ -104,7 +111,8 @@ static std::vector<ydk::path::Capability> test_openconfig {
     {"ietf-netconf-monitoring", ""},
     {"ietf-interfaces", ""},
     {"ydk", ""},
-    {"ydktest-sanity", ""}
-
+    {"ydktest-sanity", ""},
+    {"ydktest-sanity-action", ""},
+    {"ydktest-types", ""}
 };
 

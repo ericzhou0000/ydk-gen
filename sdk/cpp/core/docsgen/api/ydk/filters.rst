@@ -52,6 +52,16 @@ YDK Filters
             configuration, only the configuration actually present in
             the <config> parameter is affected.
 
+        .. cpp:enumerator:: update
+
+            The configuration data identified by the element
+            containing this attribute updates any related configuration
+            in the configuration datastore identified by the <target>
+            parameter.  If no such configuration data exists in the
+            configuration datastore, it is created. 
+            
+            **Note.** The ``YFilter::update`` is aplicable only to :py:class:`gNMIService<ydk.gnmi.services.gNMIService>` **set** operation.
+            
         .. cpp:enumerator:: read
 
             When reading configuration or operational data from a network device and a specific leaf is desired to be read, the operation can be set to `read` on that leaf. See example below
@@ -81,7 +91,7 @@ An example of setting the filter for an :cpp:class:`entity<Entity>` (address fam
   afi_safi->filter = YFilter::delete_;
 
   //Append the list instance to afi-safis's afi-safi field
-  bgp.global->afi_safis->afi_safi.push_back(afi_safi);
+  bgp.global->afi_safis->afi_safi.append(afi_safi);
 
   // Instantiate the CRUD service and Netconf provider to connect to a device with address 10.0.0.1
   CrudService crud_service{};

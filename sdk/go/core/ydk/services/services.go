@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"strconv"
 	"github.com/CiscoDevNet/ydk-go/ydk"
+	"github.com/CiscoDevNet/ydk-go/ydk/errors"
 	"github.com/CiscoDevNet/ydk-go/ydk/path"
 	"github.com/CiscoDevNet/ydk-go/ydk/types"
 	"github.com/CiscoDevNet/ydk-go/ydk/types/datastore"
@@ -46,8 +47,8 @@ type CrudService struct {
 func (c *CrudService) Create(
 	provider types.ServiceProvider, entity types.Entity) bool {
 
-	data := map[string]interface{} { "entity": entity }
-	return operationSucceeded(path.ExecuteRPC(provider, "ydk:create", data, false))
+	options := make(map[string]string)
+	return operationSucceeded(provider.ExecuteRpc("create", entity, options))
 }
 
 // Update the entity.
@@ -55,8 +56,8 @@ func (c *CrudService) Create(
 func (c *CrudService) Update(
 	provider types.ServiceProvider, entity types.Entity) bool {
 
-	data := map[string]interface{} { "entity": entity }
-	return operationSucceeded(path.ExecuteRPC(provider, "ydk:update", data, false))
+	options := make(map[string]string)
+	return operationSucceeded(provider.ExecuteRpc("update", entity, options))
 }
 
 // Delete the entity.
@@ -64,8 +65,8 @@ func (c *CrudService) Update(
 func (c *CrudService) Delete(
 	provider types.ServiceProvider, entity types.Entity) bool {
 
-	data := map[string]interface{} { "entity": entity }
-	return operationSucceeded(path.ExecuteRPC(provider, "ydk:delete", data, false))
+	options := make(map[string]string)
+	return operationSucceeded(provider.ExecuteRpc("delete", entity, options))
 }
 
 // Read the entity.
@@ -73,9 +74,10 @@ func (c *CrudService) Delete(
 func (c *CrudService) Read(
 	provider types.ServiceProvider, filter types.Entity) types.Entity {
 
-	data := map[string]interface{} { "filter": filter }
-	return path.ReadDatanode(
-		filter, path.ExecuteRPC(provider, "ydk:read", data, false))
+	options := make(map[string]string)
+	options["mode"] = "all"
+	dn := provider.ExecuteRpc("read", filter, options)
+	return path.ReadDatanode( filter, dn)
 }
 
 // ReadConfig only reads config.
@@ -83,9 +85,10 @@ func (c *CrudService) Read(
 func (c *CrudService) ReadConfig(
 	provider types.ServiceProvider, filter types.Entity) types.Entity {
 
-	data := map[string]interface{} { "filter": filter }
-	return path.ReadDatanode(
-		filter, path.ExecuteRPC(provider, "ydk:read", data, true))
+	options := make(map[string]string)
+	options["mode"] = "config"
+	dn := provider.ExecuteRpc("read", filter, options)
+	return path.ReadDatanode( filter, dn)
 }
 
 // CodecService supports encoding and decoding Go model API objects of type
@@ -111,7 +114,11 @@ func (c *CodecService) Decode(
 
 	// 1. parse payload, get topEntity
 	nmsp := getEntityLookupKey(provider, payload)
-	topEntity := ydk.GetTopEntity(nmsp)
+	topEntity, _ := ydk.GetTopEntity(nmsp)
+	if topEntity == nil {
+		err := errors.YModelError{Msg: fmt.Sprintf("Failed to find top entity for lookup key '%s'", nmsp)}
+		panic(err.Error())
+	}
 	// 2. initialize repository, fetch rootSchema
 	provider.Initialize(topEntity)
 	rootSchema := provider.GetRootSchemaNode(topEntity)
@@ -211,18 +218,18 @@ func (ns *NetconfService) CopyConfig(
 
 	// target/source options: candidate | running | startup | url
 	if (target == datastore.NotSet) {
-		err := types.YGOError{Msg: "You must select target"}
+		err := errors.YError{Msg: "You must select target"}
 		panic(err.Error())
 	}
 
 	if ((target == datastore.URL ||
 		sourceDS == datastore.URL) && len(url) == 0){
-		err := types.YGOError{Msg: "url must be specified"}
+		err := errors.YError{Msg: "url must be specified"}
 		panic(err.Error())
 	}
 	if ((sourceDS != datastore.NotSet && sourceEntity != nil) ||
 		sourceDS == datastore.NotSet && sourceEntity == nil) {
-		err := types.YGOError{
+		err := errors.YError{
 			Msg: "sourceDS OR sourceEntity must be valid, not neither nor both"}
 		panic(err.Error())
 	}
@@ -261,7 +268,7 @@ func (ns *NetconfService) DeleteConfig(
 
 		errMsg := "target: %v can only be Startup (url is ignored)"
 		errMsg += " or Url (url must be specified)"
-		err := types.YGOError{Msg: fmt.Sprintf(errMsg, dsStr)}
+		err := errors.YError{Msg: fmt.Sprintf(errMsg, dsStr)}
 		panic(err.Error())
 	}
 
@@ -301,7 +308,7 @@ func (ns *NetconfService) EditConfig(
 	if (target == datastore.URL || target == datastore.Startup){
 		errMsg := fmt.Sprintf(
 			"target: %v can only be Candidate or Running", dsStr)
-		err := types.YGOError{Msg: errMsg}
+		err := errors.YError{Msg: errMsg}
 		panic(err.Error())
 	}
 
@@ -341,7 +348,7 @@ func (ns *NetconfService) GetConfig(
 	if (source == datastore.URL){
 		errMsg := fmt.Sprintf(
 			"source: %v can only be Candidate, Running, or Startup", dsStr)
-		err := types.YGOError{Msg: errMsg}
+		err := errors.YError{Msg: errMsg}
 		panic(err.Error())
 	}
 
@@ -391,7 +398,7 @@ func (ns *NetconfService) Lock(
 	dataValue := ""
 
 	if (target == datastore.URL){
-		err := types.YGOError{Msg: "url must be specified"}
+		err := errors.YError{Msg: "url must be specified"}
 		panic(err.Error())
 	}
 
@@ -412,7 +419,7 @@ func (ns *NetconfService) Unlock(
 	dataValue := ""
 
 	if (target == datastore.URL){
-		err := types.YGOError{Msg: "url must be specified"}
+		err := errors.YError{Msg: "url must be specified"}
 		panic(err.Error())
 	}
 
@@ -438,13 +445,13 @@ func (ns *NetconfService) Validate(
 
 	if ((sourceDS != datastore.NotSet && sourceEntity != nil) ||
 		sourceDS == datastore.NotSet && sourceEntity == nil) {
-		err := types.YGOError{
+		err := errors.YError{
 			Msg: "sourceDS OR sourceEntity must be valid, not neither nor both"}
 		panic(err.Error())
 	}
 	// sourceDS options: candidate | running | startup | url
 	if (sourceDS == datastore.URL && len(url) == 0){
-		err := types.YGOError{Msg: "url must be specified"}
+		err := errors.YError{Msg: "url must be specified"}
 		panic(err.Error())
 	}
 	data := map[string]interface{} {}
@@ -481,7 +488,7 @@ func getEntityLookupKey(
 	switch encoding {
 
 	case encodingFmt.XML:
-		ydk.YLogDebug("Using XML encoding...")
+		ydk.YLogDebug(fmt.Sprintf("services.getEntityLookupKey: Using XML encoding for payload:\n%s", payload))
 
 		type XMLObj struct {
 			XMLName xml.Name
@@ -497,7 +504,7 @@ func getEntityLookupKey(
 		nmsp = fmt.Sprintf("%v", xmlObj.XMLName)
 
 	case encodingFmt.JSON:
-		ydk.YLogDebug("Using JSON encoding...")
+		ydk.YLogDebug(fmt.Sprintf("services.getEntityLookupKey: Using JSON encoding for payload:\n%s", payload))
 
 		var jsonObj interface{}
 		err := json.Unmarshal([]byte(payload), &jsonObj)
@@ -519,6 +526,6 @@ func getEntityLookupKey(
 	default:
 		panic("Encoding not supported!")
 	}
-
+	ydk.YLogDebug(fmt.Sprintf("services.getEntityLookupKey: Got namespace: '%s'", nmsp))
 	return nmsp
 }

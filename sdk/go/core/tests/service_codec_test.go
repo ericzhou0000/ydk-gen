@@ -9,16 +9,18 @@ import (
 	ysanity_bgp "github.com/CiscoDevNet/ydk-go/ydk/models/ydktest/openconfig_bgp"
 	ysanity_bgp_types "github.com/CiscoDevNet/ydk-go/ydk/models/ydktest/openconfig_bgp_types"
 	ysanity "github.com/CiscoDevNet/ydk-go/ydk/models/ydktest/sanity"
+	ysanity_typedefs "github.com/CiscoDevNet/ydk-go/ydk/models/ydktest/sanity_typedefs"
 	"github.com/CiscoDevNet/ydk-go/ydk/providers"
 	"github.com/CiscoDevNet/ydk-go/ydk/services"
 	"github.com/CiscoDevNet/ydk-go/ydk/types"
+	"github.com/CiscoDevNet/ydk-go/ydk/types/ylist"
 	encoding "github.com/CiscoDevNet/ydk-go/ydk/types/encoding_format"
 	"github.com/stretchr/testify/suite"
 	"testing"
 )
 
 const (
-	xmlBgpPayload = `<bgp xmlns="http://openconfig.net/yang/bgp">
+	xmlBgpPayload = `<?xml version="1.0"?><bgp xmlns="http://openconfig.net/yang/bgp">
   <global>
     <config>
       <as>65172</as>
@@ -74,7 +76,7 @@ const (
 }
 `
 
-	xmlRunnerPayload = `<runner xmlns="http://cisco.com/ns/yang/ydktest-sanity">
+	xmlRunnerPayload = `<?xml version="1.0"?><runner xmlns="http://cisco.com/ns/yang/ydktest-sanity">
   <two-list>
     <ldata>
       <number>21</number>
@@ -104,7 +106,7 @@ const (
 </runner>
 `
 
-	xmlRunnerPayload2 = `<runner xmlns="http://cisco.com/ns/yang/ydktest-sanity">
+	xmlRunnerPayload2 = `<?xml version="1.0"?><runner xmlns="http://cisco.com/ns/yang/ydktest-sanity">
   <ytypes>
     <built-in-t>
       <enum-value>local</enum-value>
@@ -156,9 +158,25 @@ const (
   }
 }`
 
-	xmlOCPatternPayload = `<oc-A xmlns="http://cisco.com/ns/yang/oc-pattern">
+	xmlOCPatternPayload = `<?xml version="1.0"?><oc-A xmlns="http://cisco.com/ns/yang/oc-pattern">
   <a>Hello</a>
 </oc-A>
+`
+	jsonNoKeyList = `{
+  "ydktest-sanity:runner": {
+    "no-key-list": [
+      {
+        "test": "t1"
+      },
+      {
+        "test": "t2"
+      },
+      {
+        "test": "t3"
+      }
+    ]
+  }
+}
 `
 )
 
@@ -215,13 +233,13 @@ func config(bgp *ysanity_bgp.Bgp) {
 	ipv6Afisafi.AfiSafiName = &ysanity_bgp_types.IPV6UNICAST{}
 	ipv6Afisafi.Config.AfiSafiName = &ysanity_bgp_types.IPV6UNICAST{}
 	ipv6Afisafi.Config.Enabled = true
-	bgp.Global.AfiSafis.AfiSafi = append(bgp.Global.AfiSafis.AfiSafi, ipv6Afisafi)
+	bgp.Global.AfiSafis.AfiSafi = append(bgp.Global.AfiSafis.AfiSafi, &ipv6Afisafi)
 
 	ipv4Afisafi := ysanity_bgp.Bgp_Global_AfiSafis_AfiSafi{}
 	ipv4Afisafi.AfiSafiName = &ysanity_bgp_types.IPV4UNICAST{}
 	ipv4Afisafi.Config.AfiSafiName = &ysanity_bgp_types.IPV4UNICAST{}
 	ipv4Afisafi.Config.Enabled = true
-	bgp.Global.AfiSafis.AfiSafi = append(bgp.Global.AfiSafis.AfiSafi, ipv4Afisafi)
+	bgp.Global.AfiSafis.AfiSafi = append(bgp.Global.AfiSafis.AfiSafi, &ipv4Afisafi)
 }
 
 func configRunner(runner *ysanity.Runner) {
@@ -242,8 +260,8 @@ func configRunner(runner *ysanity.Runner) {
 	elem12.Number = 212
 	elem12.Name = "runner:twolist:ldata:21:subl1:212"
 
-	elem1.Subl1 = append(elem1.Subl1, elem11)
-	elem1.Subl1 = append(elem1.Subl1, elem12)
+	elem1.Subl1 = append(elem1.Subl1, &elem11)
+	elem1.Subl1 = append(elem1.Subl1, &elem12)
 
 	elem21 := ysanity.Runner_TwoList_Ldata_Subl1{}
 	elem22 := ysanity.Runner_TwoList_Ldata_Subl1{}
@@ -253,11 +271,11 @@ func configRunner(runner *ysanity.Runner) {
 	elem22.Number = 222
 	elem22.Name = "runner:twolist:ldata:22:subl1:222"
 
-	elem2.Subl1 = append(elem2.Subl1, elem21)
-	elem2.Subl1 = append(elem2.Subl1, elem22)
+	elem2.Subl1 = append(elem2.Subl1, &elem21)
+	elem2.Subl1 = append(elem2.Subl1, &elem22)
 
-	runner.TwoList.Ldata = append(runner.TwoList.Ldata, elem1)
-	runner.TwoList.Ldata = append(runner.TwoList.Ldata, elem2)
+	runner.TwoList.Ldata = append(runner.TwoList.Ldata, &elem1)
+	runner.TwoList.Ldata = append(runner.TwoList.Ldata, &elem2)
 }
 
 func (suite *CodecTestSuite) TestXMLEncode() {
@@ -413,6 +431,132 @@ func (suite *CodecTestSuite) TestXMLDecodeOCPattern() {
 	ocA := entity.(*oc_pattern.OcA)
 
 	suite.Equal(types.EntityEqual(entity, ocA), true)
+}
+
+func (suite *CodecTestSuite) TestTypedefsXMLEncodeDecode() {
+	systemEncode := ysanity_typedefs.System{}
+	systemEncode.Id = 22
+	systemEncode.Mode = ysanity_typedefs.TopMode_stand_alone
+
+	suite.Provider.Encoding = encoding.XML
+
+	payload := suite.Codec.Encode(&suite.Provider, &systemEncode)
+
+	entity := suite.Codec.Decode(&suite.Provider, payload)
+	systemDecode := entity.(*ysanity_typedefs.System)
+
+	suite.Equal(types.EntityEqual(&systemEncode, systemDecode), true)
+}
+
+func (suite *CodecTestSuite) TestXMLEncodeDecodeMultiple() {
+
+	runnerConfig := ysanity.Runner{}
+	runnerConfig.Two.Number = 2
+
+	nativeConfig := ysanity.Native{}
+	nativeConfig.Version = "0.1.0"
+
+	config := types.NewConfig(&runnerConfig, &nativeConfig)
+
+	suite.Provider.Encoding = encoding.XML	
+	payload := suite.Codec.Encode(&suite.Provider, &config)
+
+	entity := suite.Codec.Decode(&suite.Provider, payload)
+	suite.Equal(types.IsEntityCollection(entity), true)
+
+	// Check results
+	ec := types.EntityToCollection(entity)
+	suite.Equal(ec.Len(), 2)
+
+	payload2 := suite.Codec.Encode(&suite.Provider, ec)
+	suite.Equal(payload2, payload)
+}
+
+func (suite *CodecTestSuite) TestPassiveInterfaceCodec() {
+	runner := ysanity.Runner{}
+	ospf := ysanity.Runner_YdktestSanityOne_Ospf{}
+	ospf.Id = 22
+	ospf.PassiveInterface.Interface = "xyz"
+	test := ysanity.Runner_YdktestSanityOne_Ospf_Test{}
+	test.Name = "abc"
+	ospf.Test = append(ospf.Test, &test)
+	runner.YdktestSanityOne.Ospf = append(runner.YdktestSanityOne.Ospf, &ospf)
+	suite.Provider.Encoding = encoding.XML
+	payload := suite.Codec.Encode(&suite.Provider, &runner)
+	suite.Equal(payload, 
+`<runner xmlns="http://cisco.com/ns/yang/ydktest-sanity">
+  <one>
+    <ospf xmlns="http://cisco.com/ns/yang/ydktest-sanity-augm">
+      <id>22</id>
+      <passive-interface>
+        <interface>xyz</interface>
+      </passive-interface>
+      <test>
+        <name>abc</name>
+      </test>
+    </ospf>
+  </one>
+</runner>
+`)
+	entity := suite.Codec.Decode(&suite.Provider, payload)
+	runnerDecode := entity.(*ysanity.Runner)
+	suite.Equal(types.EntityEqual(&runner, runnerDecode), true)
+}
+
+func (suite *CodecTestSuite) TestOneKeyList() {
+	runner := ysanity.Runner{}
+	configRunner(&runner)
+
+	// Get first level list element
+	_, ldata := ylist.Get(runner.TwoList.Ldata, 22)
+	suite.NotNil(ldata)
+	suite.Equal(types.EntityToString(ldata), "Type: *sanity.Runner_TwoList_Ldata, Path: ldata[number='22']")
+
+	// Try non-existant key
+	_, ldataNE := ylist.Get(runner.TwoList.Ldata, 222)
+	suite.Nil(ldataNE)
+
+	// Get second level list element
+	sublist := ldata.(*ysanity.Runner_TwoList_Ldata).Subl1
+	_, sublData:= ylist.Get(sublist, 221)
+	suite.NotNil(sublData)
+	suite.Equal(types.EntityToString(sublData), "Type: *sanity.Runner_TwoList_Ldata_Subl1, Path: subl1[number='221']")
+
+	// Iterate over key list
+	sublistKeys := ylist.Keys(sublist)
+	suite.Equal(len(sublistKeys), 2)
+	suite.Equal(fmt.Sprintf("%v", sublistKeys), "[221 222]")
+	for _, key := range sublistKeys {
+		_, entity := ylist.Get(sublist, key)
+		suite.NotNil(entity)
+		ydk.YLogDebug(fmt.Sprintf("For key: %v, Found Entity: %v", key, types.EntityToString(entity)))
+	}
+	
+	// Remove element from the ylist
+	i, rdata := ylist.Get(runner.TwoList.Ldata, 22)
+	suite.Equal(i, 1)
+	suite.NotNil(rdata)
+	if rdata != nil {
+		runner.TwoList.Ldata = append(runner.TwoList.Ldata[:i], runner.TwoList.Ldata[i+1:]...)
+		suite.Equal(len(runner.TwoList.Ldata), 1)
+		i, rdata = ylist.Get(runner.TwoList.Ldata, 22)
+		suite.Nil(rdata)
+	}
+}
+
+func (suite *CodecTestSuite) TestListNoKeys() {
+	runner := ysanity.Runner{}
+	t1 := ysanity.Runner_NoKeyList{Test: "t1"}
+	t2 := ysanity.Runner_NoKeyList{Test: "t2"}
+	t3 := ysanity.Runner_NoKeyList{Test: "t3"}
+	runner.NoKeyList = []*ysanity.Runner_NoKeyList {&t1, &t2, &t3}
+
+	suite.Provider.Encoding = encoding.JSON
+	payload := suite.Codec.Encode(&suite.Provider, &runner)
+	suite.Equal(jsonNoKeyList, payload)
+
+	runnerDecode := suite.Codec.Decode(&suite.Provider, payload)
+	suite.Equal(types.EntityEqual(&runner, runnerDecode), true)
 }
 
 func TestCodecTestSuite(t *testing.T) {

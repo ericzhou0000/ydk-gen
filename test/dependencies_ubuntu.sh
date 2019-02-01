@@ -17,13 +17,11 @@
 #
 # Script for running ydk CI on docker via travis-ci.org
 #
+# dependencies_ubuntu (Ubuntu 16.04)
 # ------------------------------------------------------------------
 
-RED="\033[0;31m"
-NOCOLOR="\033[0m"
-
 function print_msg {
-    echo -e "${RED}*** $(date) *** dependencies_linux.sh | $1${NOCOLOR}"
+    echo -e "${MSG_COLOR}*** $(date) *** dependencies_ubuntu.sh | $@ ${NOCOLOR}"
 }
 
 function install_dependencies {
@@ -55,28 +53,56 @@ function install_dependencies {
                             python3-dev \
                             python-lxml \
                             python3-lxml \
+                            python3-pip \
                             python-virtualenv \
                             software-properties-common \
                             unzip \
                             wget \
                             zlib1g-dev\
-                            lcov \
+                            cmake \
                             openjdk-8-jre \
-                            golang \
-                            cmake > /dev/null
+                            gdebi-core\
+                            lcov > /dev/null
+}
 
-    # gcc-5 and g++5 for modern c++
+function check_install_gcc {
+  which gcc
+  local status=$?
+  if [[ $status == 0 ]]
+  then
+    gcc_version=$(echo $(gcc --version) | awk '{ print $3 }' | cut -d '-' -f 1)
+    print_msg "Current gcc/g++ version is $gcc_version"
+  else
+    print_msg "The gcc/g++ not installed"
+    gcc_version="4.0"
+  fi
+  gcc_version=$(echo `gcc --version` | awk '{ print $3 }' | cut -d '-' -f 1)
+  print_msg "Current gcc/g++ version is $gcc_version"
+  if [[ $(echo $gcc_version | cut -d '.' -f 1) < 5 ]]
+  then
+    print_msg "Upgrading gcc/g++ to version 5"
     sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
     sudo apt-get update > /dev/null
     sudo apt-get install gcc-5 g++-5 -y > /dev/null
-    sudo ln -f -s /usr/bin/g++-5 /usr/bin/c++
-    sudo ln -f -s /usr/bin/gcc-5 /usr/bin/cc
+    sudo ln -fs /usr/bin/g++-5 /usr/bin/c++
+    sudo ln -fs /usr/bin/gcc-5 /usr/bin/cc
+    gcc_version=$(echo $(gcc --version) | awk '{ print $3 }' | cut -d '-' -f 1)
+    print_msg "Installed gcc/g++ version is $gcc_version"
+  fi
+}
+
+function install_go {
+    print_msg "Removing pre-installed Golang"
+    sudo apt-get remove golang -y
+    print_msg "Installing Golang version 1.9.2"
+    sudo wget https://storage.googleapis.com/golang/go1.9.2.linux-amd64.tar.gz &> /dev/null
+    sudo tar -zxf  go1.9.2.linux-amd64.tar.gz -C /usr/local/
 }
 
 function install_confd {
     print_msg "Installing confd"
 
-    wget https://github.com/CiscoDevNet/ydk-gen/files/562538/confd-basic-6.2.linux.x86_64.zip
+    wget https://github.com/CiscoDevNet/ydk-gen/files/562538/confd-basic-6.2.linux.x86_64.zip &> /dev/null
     unzip confd-basic-6.2.linux.x86_64.zip
     ./confd-basic-6.2.linux.x86_64.installer.bin ../confd
 }
@@ -87,36 +113,17 @@ function install_fpm {
     gem install --no-ri --no-rdoc fpm
 }
 
-function install_protobuf {
-    print_msg "Installing protobuf and protoc"
-
-    wget https://github.com/google/protobuf/releases/download/v3.3.0/protobuf-cpp-3.3.0.zip
-    unzip protobuf-cpp-3.3.0.zip
-    cd protobuf-3.3.0
-    ./configure
-    make
-    make check
-    sudo make install
-    sudo ldconfig
-    cd -
-}
-
-function install_grpc {
-    print_msg "Installing grpc"
-
-    git clone -b 1.4.5 https://github.com/grpc/grpc
-    cd grpc
-    git submodule update --init
-    sudo ldconfig
-    make
-    sudo make install
-    cd -
-}
-
 ########################## EXECUTION STARTS HERE #############################
 
+# Terminal colors
+NOCOLOR="\033[0m"
+YELLOW='\033[1;33m'
+MSG_COLOR=$YELLOW
+
 install_dependencies
+check_install_gcc
+install_go
+
 install_confd
-install_fpm
-install_protobuf
-install_grpc
+
+#install_fpm

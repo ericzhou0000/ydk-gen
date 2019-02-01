@@ -27,6 +27,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #include "json.hpp"
 #include "gnmi.grpc.pb.h"
@@ -46,68 +48,86 @@ using grpc::SslServerCredentialsOptions;
 using grpc::SslServerCredentials;
 using grpc::Status;
 
+using grpc::ServerReaderWriter;
+using gnmi::SubscribeResponse;
+using gnmi::SubscribeRequest;
+using gnmi::SubscriptionList;
+using gnmi::Subscription;
+
 using json = nlohmann::json;
 
+static std::string cap_array[] =
+    {"IETF NETMOD Working Group?module=ietf-aug-base-1&revision=2016-07-01",
+     "IETF NETMOD Working Group?module=ietf-aug-base-2&revision=2016-07-01",
+     "YDK?module=oc-pattern&revision=2015-11-17",
+     "YDK?module=main&revision=2015-11-17",
+     "YDK?module=main-aug1&revision=2015-11-17",
+     "YDK?module=ydktest-aug-ietf-5&revision=2017-07-26",
+     "YDK?module=ydktest-aug-ietf-4&revision=2016-06-27",
+     "YDK?module=ydktest-aug-ietf-1&revision=2016-06-17",
+     "YDK?module=ydktest-aug-ietf-2&revision=2016-06-22",
+     "YDK?module=ydktest-filterread&revision=2015-11-17",
+     "YDK?module=ydktest-sanity&revision=2015-11-17",		//&features=ipv6-privacy-autoconf,ipv4-non-contiguous-netmasks",
+     "YDK?module=ydktest-sanity-augm&revision=2015-11-17",
+     "YDK?module=ydktest-sanity-types&revision=2016-04-11",
+     "YDK?module=ydktest-types&revision=2016-05-23",		//&features=crypto",
+     "OpenConfig working group?module=openconfig-bgp&revision=2016-06-21",
+     "OpenConfig working group?module=openconfig-bgp-policy&revision=2016-06-21",
+     "OpenConfig working group?module=openconfig-bgp-types&revision=2016-06-21",
+     "OpenConfig working group?module=openconfig-interfaces&revision=2016-05-26",
+     "OpenConfig working group?module=openconfig-if-ethernet&revision=2016-05-26",
+     "OpenConfig working group?module=openconfig-extensions&revision=2015-10-09",
+     "OpenConfig working group?module=openconfig-types&revision=2016-05-31",
+     "OpenConfig working group?module=openconfig-platform&revision=2016-06-06",		//&deviations=cisco-xr-openconfig-platform-deviations",
+     "OpenConfig working group?module=openconfig-platform-types&revision=2016-06-06",
+     "OpenConfig working group?module=openconfig-platform-transceiver&revision=2016-05-24",
+     "OpenConfig working group?module=openconfig-policy-types&revision=2016-05-12",
+     "OpenConfig working group?module=openconfig-routing-policy&revision=2016-05-12",
+     "OpenConfig working group?module=openconfig-terminal-device&revision=2016-06-17",
+     "OpenConfig working group?module=openconfig-transport-types&revision=2016-06-17"
+    };
+
+static std::string bgp_payload =
+		"{\"global\":{\"config\":{\"as\":65172} },\"neighbors\":{\"neighbor\":[{\"neighbor-address\":\"172.16.255.2\",\"config\":{\"neighbor-address\":\"172.16.255.2\",\"peer-as\":65172}}]}}";
+static std::string int_payload =
+		"{\"interface\":[{\"name\":\"Loopback10\",\"config\":{\"name\":\"Loopback10\",\"description\":\"Test\"}}]}";
+static std::string null_payload =
+		"{\"value\":\"null\"}";
+
 // Logic and data behind the server's behavior.
-class gNMIImpl final : public gNMI::Service 
+class gNMIImpl final : public gNMI::Service
 {    
-    int set_counter = 0;
-    int delete_counter = 0;
-    bool is_secure = true;
+    bool int_set = false;
+    bool bgp_set = false;
 
     Status Capabilities(ServerContext* context, const CapabilityRequest* request, CapabilityResponse* response) override 
     {
-        response->set_gnmi_version("0.2.2");
-
-        // read cap file and populate model data
-        std::ifstream capfile("/usr/local/share/ydk/0.0.0.0:50051/capabilities.txt");
-
-        ::gnmi::ModelData* modeldata;
-        ::gnmi::Encoding encoding;
-
-        std::string cap;
-        std::vector<std::string> capabilities;
-        std::string org_name;
-        std::string module_name;
-        std::string revision_number;
-        std::string name_delim = "?module=";
+        std::string module_delim = "?module=";
         std::string rev_delim = "&revision=";
 
-        while (std::getline(capfile, cap)) 
+        for (auto cap : cap_array)
         {
-            capabilities.push_back(cap);
-            if((cap.find(name_delim)==std::string::npos) && (cap.find(rev_delim)==std::string::npos)) 
-            {
-                org_name = cap.substr(0,cap.find(name_delim));
-            } 
-            else 
-            {
-                org_name = cap.substr(0,cap.find(name_delim));
-                cap.erase(0,cap.find(name_delim) + name_delim.length());
-                module_name = cap.substr(0, cap.find(rev_delim));
-                revision_number = cap.substr(cap.find(rev_delim) + rev_delim.length());
-            }
+            ::gnmi::ModelData* modeldata = response->add_supported_models();
 
-            modeldata = response->add_supported_models();
-            modeldata->set_name(module_name);
-            std::cout << "Organization: " << modeldata->organization() << std::endl;
-            if(!(modeldata->organization()).empty())
-            {
-                std::cout << "Organization: " << modeldata->organization() << std::endl;
-            }
-            if(!module_name.empty()) 
-            { 
+            auto module_pos = cap.find(module_delim);
+            auto rev_pos = cap.find(rev_delim);
+            if (module_pos != std::string::npos && rev_pos != std::string::npos) {
+                std::string org_name = cap.substr(0, module_pos);
                 modeldata->set_organization(org_name);
-                std::cout << "Module: " << modeldata->name() << std::endl;
-            }
-            if(!revision_number.empty()) 
-            {
+
+                std::string module_name = cap.substr(module_pos+module_delim.length(), rev_pos-module_pos-module_delim.length());
+                modeldata->set_name(module_name);
+
+                std::string revision_number = cap.substr(rev_pos + rev_delim.length());
                 modeldata->set_version(revision_number);
-                std::cout << "Revision: " << modeldata->version() << std::endl;
-                std::cout << "          -----------             \n" << std::endl;
             }
         }
+
         response->add_supported_encodings(::gnmi::Encoding::JSON);
+        response->add_supported_encodings(::gnmi::Encoding::JSON_IETF);
+
+        response->set_gnmi_version("0.4.0");
+
         return Status::OK;
     }
 
@@ -122,178 +142,311 @@ class gNMIImpl final : public gNMI::Service
         json::json_pointer path_ptr(path_to_string);
     }
 
+    const std::string get_response_payload(const std::string origin, const std::string last_elem)
+    {
+        std:: string response_payload = null_payload;
+        if (origin == "openconfig-bgp" && bgp_set) {
+            if (last_elem == "bgp")
+                response_payload = bgp_payload;
+            else if (last_elem == "global")
+                response_payload = "{\"config\":{\"as\":65172} }";
+            else if (last_elem == "as")
+                response_payload = "65172";
+     	    else if (last_elem == "neighbors")
+                response_payload = "{\"neighbor\":[{\"neighbor-address\":\"172.16.255.2\",\"config\":{\"neighbor-address\":\"172.16.255.2\",\"peer-as\":65172}}]}";
+     	    else if (last_elem == "neighbor")
+                response_payload = "[{\"neighbor-address\":\"172.16.255.2\",\"config\":{\"neighbor-address\":\"172.16.255.2\",\"peer-as\":65172}}]";
+     	    else if (last_elem == "config")
+                response_payload = "{\"neighbor-address\":\"172.16.255.2\",\"peer-as\":65172}";
+     	    else if (last_elem == "neighbor-address")
+                response_payload = "\"172.16.255.2\"";
+     	    else if (last_elem == "peer-as")
+                response_payload = "65172";
+        }
+        else if (origin == "openconfig-interfaces" && int_set) {
+            if (last_elem == "interfaces")
+            	response_payload = int_payload;
+            else if (last_elem == "interface")
+            	response_payload = "[{\"name\":\"Loopback10\",\"config\":{\"name\":\"Loopback10\",\"description\":\"Test\"}}]";
+            else if (last_elem == "config")
+                response_payload = "{\"name\":\"Loopback10\",\"description\":\"Test\"}";
+            else if (last_elem == "description")
+                response_payload = "\"Test\"";
+        }
+        return response_payload;
+    }
+
     Status Get(ServerContext* context, const GetRequest* request, GetResponse* response) override 
     {
-        ::gnmi::Notification* notification;
-        std::string response_payload;
-        ::gnmi::Update* update;
-        ::gnmi::TypedValue* value = new ::gnmi::TypedValue;
-        ::gnmi::Path* path = new ::gnmi::Path;
-        ::gnmi::Path prefix;
-        std::string prefix_element;
-        std::string path_element;
-        std::vector<std::string> path_container;
-        int element_size;
-        int is_bgp = 0;
-        json json_payload;
-
-        notification = response->add_notification();
-        std::time_t timestamp_val = std::time(nullptr);
-        notification->set_timestamp(static_cast< ::google::protobuf::int64>(timestamp_val));
-        notification->mutable_prefix()->CopyFrom(request->prefix());
-
-        update = notification->add_update();
-
-        for(int i = 0; i < notification->prefix().element_size(); ++i) 
-        {
-          prefix_element.append("\"");
-          prefix_element.append(notification->prefix().element(i));
-          prefix_element.append("\"");
-        }
+        //std::cout << "=========== Get Request Received ===========" << std::endl;
+        //std::cout << request->DebugString() << std::endl;
 
         for(int j = 0; j < request->path_size(); ++j) 
         {
-          for(int i = 0; i < request->path(j).element_size(); ++i) 
-          {
-            path_element.append(request->path(j).element(i));
-            path->add_element(request->path(j).element(i));
-            path_container.push_back(path_element);
-            if(path_element == "openconfig-bgp:bgp") {
-                is_bgp = 1;
+            ::gnmi::Path* response_path = new ::gnmi::Path;
+            auto notification = response->add_notification();
+            std::time_t timestamp_val = std::time(nullptr);
+            notification->set_timestamp(static_cast< ::google::protobuf::int64>(timestamp_val));
+
+            auto req_path = request->path(j);
+            std::string last_elem{};
+            std::string origin = req_path.origin();
+            if (origin.length() > 0) {
+                response_path->set_origin(origin);
             }
-            path_element.clear();
-          }
-        }
+            for (int i = 0; i < req_path.elem_size(); ++i)
+            {
+                gnmi::PathElem* path_elem = response_path->add_elem();
+                path_elem->CopyFrom(req_path.elem(i));
+                last_elem = path_elem->name();
+            }
+            auto update = notification->add_update();
+            update->set_allocated_path(response_path);
 
-        update->set_allocated_path(path);
+            ::gnmi::TypedValue* value = new ::gnmi::TypedValue;
 
-        if (set_counter == 1 && delete_counter == 0 && is_bgp == 1){
-            std::cout << "DEBUG: Update Value Set by Create Request\n";
-            response_payload = "{\"global\": {\"config\": {\"as\":65172} }, \"neighbors\": {\"neighbor\": [{\"neighbor-address\":\"172.16.255.2\", \"config\": {\"neighbor-address\":\"172.16.255.2\",\"peer-as\":65172}}]}}";
-            json_payload = json::parse(response_payload);
-            get_value(path_container, json_payload);
+            //std::vector<std::string> path_container;
+            //json json_payload = json::parse(response_payload);
+            //get_value(path_container, json_payload);
+
+            auto response_payload = get_response_payload(origin, last_elem);
             value->set_json_ietf_val(response_payload);
             update->set_allocated_val(value);
-        } 
-        else if (delete_counter == 1) {
-            std::cout << "DEBUG: Update Value Deleted by Delete Request\n";
-            response_payload = "{\"value\":\"null\"}";
-        }
-        else {
-            response_payload = "{\"value\":\"null\"}";
         }
 
-
-        std::cout << "===========Get Request Received===========" << std::endl;
-        std::cout << request->DebugString() << std::endl;
-        std::cout << "===========Get Response Sent===========" << std::endl;
-        std::cout << response->DebugString() << std::endl;
+        //std::cout << "=========== Get Response Sent ===========" << std::endl;
+        //std::cout << response->DebugString() << std::endl;
         return Status::OK;
     } 
 
     Status Set(ServerContext* context, const SetRequest* request, SetResponse* response) override 
     {
-        ::grpc::Status status;
-        ::gnmi::Update update;
-        ::gnmi::Update replace;
-        ::gnmi::UpdateResult* update_response;
-        ::gnmi::Path* path = new ::gnmi::Path;
-        ::gnmi::UpdateResult_Operation operation;
-        
-        update_response = response->add_response();
+        //std::cout << "=========== Set Request Received ===========" << std::endl;
+        //std::cout << request->DebugString() << std::endl;
 
         std::time_t timestamp_val = std::time(nullptr);
-        update_response->set_timestamp(static_cast< ::google::protobuf::int64>(timestamp_val));
+        response->set_timestamp(static_cast< ::google::protobuf::int64>(timestamp_val));
 
-        if (request->delete__size() >= 1)
+        for (int i = 0; i < request->delete__size(); ++i)
         {
-            delete_counter = 1;
-            for(int i = 0; i < request->delete__size(); ++i)
-            {
-                ::gnmi::Path delete_path = request->delete_(i); 
-                delete_path.add_element(delete_path.element(i));
+            ::gnmi::UpdateResult* update_response = response->add_response();
+
+            ::gnmi::Path* response_path = new ::gnmi::Path();
+            ::gnmi::Path delete_path = request->delete_(i);
+            std::string origin = delete_path.origin();
+            if (origin.length() > 0) {
+                response_path->set_origin(origin);
+                if (origin == "openconfig-bgp" && bgp_set) {
+                    bgp_set = false;
+                }
+                else if (origin == "openconfig-interfaces" && int_set) {
+                    int_set = false;
+                }
             }
+            for(int j = 0; j < delete_path.elem_size(); ++j)
+            {
+                gnmi::PathElem* path_elem = response_path->add_elem();
+                path_elem->CopyFrom(delete_path.elem(j));
+            }
+            update_response->set_allocated_path(response_path);
             update_response->set_op(::gnmi::UpdateResult_Operation::UpdateResult_Operation_DELETE);
-            std::cout << "===========Set Request Received===========" << std::endl;
-            std::cout << request->DebugString() << std::endl;
-            std::cout << "===========Set Response Sent===========" << std::endl;
-            std::cout << response->DebugString() << std::endl;
-            return Status::OK;
         } 
-        else if (request->replace_size() >= 1) {
-            for(int i = 0; i < request->replace_size(); ++i)
-            {
-                replace = request->replace(i); 
-                for(int j = 0; j < replace.path().element_size(); ++j) 
-                {
-                    path->add_element(replace.path().element(j));
+
+        for (int i = 0; i < request->replace_size(); ++i)
+        {
+            ::gnmi::UpdateResult* update_response = response->add_response();
+
+            ::gnmi::Path* response_path = new ::gnmi::Path;
+            ::gnmi::Update request_update= request->replace(i);
+            auto replace_path = request_update.path();
+            std::string origin = replace_path.origin();
+            if (origin.length() > 0) {
+                response_path->set_origin(origin);
+                if (origin == "openconfig-bgp") {
+                    bgp_set = true;
+                }
+                else if (origin == "openconfig-interfaces") {
+                    int_set = true;
                 }
             }
-            update_response->set_allocated_path(path);
+            for(int j = 0; j < replace_path.elem_size(); ++j)
+            {
+                gnmi::PathElem* path_elem = response_path->add_elem();
+                path_elem->CopyFrom(replace_path.elem(j));
+            }
+            update_response->set_allocated_path(response_path);
             update_response->set_op(::gnmi::UpdateResult_Operation::UpdateResult_Operation_REPLACE);
-            std::cout << "===========Set Request Received===========" << std::endl;
-            std::cout << request->DebugString() << std::endl;
-            std::cout << "===========Set Response Sent===========" << std::endl;
-            std::cout << response->DebugString() << std::endl;
-            return Status::OK;
-        } 
-        else if (request->update_size() >= 1) {
-            set_counter = 1;
-            delete_counter = 0;
-            for(int i = 0; i < request->update_size(); ++i)
-            {
-                update = request->update(i); 
-                for(int j = 0; j < update.path().element_size(); ++j) 
-                {
-                    path->add_element(update.path().element(j));
+        }
+
+        for (int i = 0; i < request->update_size(); ++i)
+        {
+            ::gnmi::UpdateResult* update_response = response->add_response();
+
+            ::gnmi::Path* response_path = new ::gnmi::Path;
+            ::gnmi::Update request_update= request->update(i);
+            auto replace_path = request_update.path();
+            std::string origin = replace_path.origin();
+            if (origin.length() > 0) {
+                response_path->set_origin(origin);
+                if (origin == "openconfig-bgp") {
+                    bgp_set = true;
+                }
+                else if (origin == "openconfig-interfaces") {
+                    int_set = true;
                 }
             }
-            update_response->set_allocated_path(path);
+            for(int j = 0; j < replace_path.elem_size(); ++j)
+            {
+                gnmi::PathElem* path_elem = response_path->add_elem();
+                path_elem->CopyFrom(replace_path.elem(j));
+            }
+            update_response->set_allocated_path(response_path);
             update_response->set_op(::gnmi::UpdateResult_Operation::UpdateResult_Operation_UPDATE);
-            std::cout << "===========Set Request Received===========" << std::endl;
-            std::cout << request->DebugString() << std::endl;
-            std::cout << "===========Set Response Sent===========" << std::endl;
-            std::cout << response->DebugString() << std::endl;
-            return Status::OK;
-        } else {
-            update_response->set_op(::gnmi::UpdateResult_Operation::UpdateResult_Operation_INVALID); 
-            std::cout << status.error_message() << std::endl;
-            return Status::CANCELLED;
         }
-    } 
+        //std::cout << "=========== Set Response Sent ===========" << std::endl;
+        //std::cout << response->DebugString() << std::endl;
+        return Status::OK;
+    }
+
+    Status Subscribe(ServerContext* context, ServerReaderWriter<SubscribeResponse, SubscribeRequest>* stream) override
+    {
+        SubscribeRequest request{};
+        SubscriptionList subscription_list{};
+
+        while (stream->Read(&request))
+        {
+            //std::cout << "=========== Subscribe Request Received ===========" << std::endl;
+            //std::cout << request.DebugString() << std::endl;
+
+            if (request.has_subscribe())
+                subscription_list = request.subscribe();
+
+            if (subscription_list.subscription_size() > 0)
+            {
+                if (subscription_list.mode() == SubscriptionList::ONCE)
+                {
+                    SubscribeResponse response = get_subscribe_response( subscription_list);
+
+                    // Write message to the wire
+                    ::grpc::WriteOptions options{};
+                    options.set_last_message();
+                    options.set_write_through();
+                    stream->Write( response, options);
+                    break;
+                }
+                else
+                if (subscription_list.mode() == SubscriptionList::STREAM)
+                {
+                    Subscription sub = subscription_list.subscription(0);
+                    ::google::protobuf::uint64 timer = 0;
+                    while (timer < sub.heartbeat_interval())
+                    {
+                        SubscribeResponse response = get_subscribe_response( subscription_list);
+                        // Write message to the wire
+                        ::grpc::WriteOptions options{};
+                        options.set_write_through();
+                        timer += sub.sample_interval();
+                        if (timer >= sub.heartbeat_interval())
+                            options.set_last_message();
+                        stream->Write( response, options);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(sub.sample_interval()/1000000));
+                    }
+                    break;
+                }
+
+                if (subscription_list.mode() == SubscriptionList::POLL && request.has_poll())
+                {
+                    request.release_poll();
+                    SubscribeResponse response = get_subscribe_response( subscription_list);
+
+                    // Write message to the wire
+                    ::grpc::WriteOptions options{};
+                    options.set_write_through();
+                    stream->Write( response, options);
+                }
+            }
+        }
+        return Status::OK;
+    }
+
+ private:
+    SubscribeResponse get_subscribe_response(SubscriptionList& subscription_list)
+    {
+        SubscribeResponse response{};
+
+        ::gnmi::Notification* notification = new ::gnmi::Notification;
+        std::time_t timestamp_val = std::time(nullptr);
+        notification->set_timestamp(static_cast< ::google::protobuf::int64>(timestamp_val));
+
+        for (int s = 0; s < subscription_list.subscription_size(); ++s)
+        {
+            Subscription sub = subscription_list.subscription(s);
+
+            // Build path
+            auto req_path = sub.path();
+            ::gnmi::Path* response_path = new ::gnmi::Path;
+            std::string origin = req_path.origin();
+            std::string last_elem{};
+            if (origin.length() > 0) {
+                response_path->set_origin(origin);
+            }
+            for (int j = 0; j < req_path.elem_size(); ++j)
+            {
+                gnmi::PathElem* path_elem = response_path->add_elem();
+                path_elem->CopyFrom(req_path.elem(j));
+                last_elem = path_elem->name();
+            }
+
+            // Build Update
+            ::gnmi::Update* update_response = notification->add_update();
+
+            update_response->set_allocated_path(response_path);
+
+            ::gnmi::TypedValue* value = new ::gnmi::TypedValue;
+            auto response_payload = get_response_payload(origin, last_elem);
+            value->set_json_ietf_val(response_payload);
+            update_response->set_allocated_val(value);
+        }
+        response.set_allocated_update(notification);
+        //std::cout << "=========== Subscribe Response Sent ===========" << std::endl;
+        //std::cout << response.DebugString() << std::endl;
+        return response;
+    }
 };
 
-void RunServer() 
+void RunServer(bool is_secure)
 {
-    std::string server_address("0.0.0.0:50051");
-    bool is_secure = true;
+    std::string server_address("127.0.0.1:50051");
 
     gNMIImpl service;
-    ServerBuilder builder; 
+    ServerBuilder builder;
     if (is_secure)
     {
+        std::cout << "Starting YDK gNMI Server in secure mode" << std::endl;
+
         // Secure Channel
         std::string server_key;
         std::string server_cert;
-    
+
         std::ifstream kf("../keys/ems-key.pem");
         std::ifstream cf("../keys/ems.pem");
-    
+
         server_key.assign((std::istreambuf_iterator<char>(kf)),(std::istreambuf_iterator<char>()));
         server_cert.assign((std::istreambuf_iterator<char>(cf)),(std::istreambuf_iterator<char>()));
-    
+
         grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {server_key, server_cert};
-    
+
         grpc::SslServerCredentialsOptions ssl_opts;
-    
+
         ssl_opts.pem_root_certs = "";
         ssl_opts.pem_key_cert_pairs.push_back(pkcp);
-    
-        std::cout << "server key: " << server_key << std::endl;
-        std::cout << "server cert: " << server_cert << std::endl;
-    
+
+        //std::cout << "server key: " << server_key << std::endl;
+        //std::cout << "server cert: " << server_cert << std::endl;
+
         builder.AddListeningPort(server_address, grpc::SslServerCredentials(ssl_opts));
     } else {
+        std::cout << "Starting YDK gNMI Server in non-secure mode" << std::endl;
         builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());  
     }
     
@@ -305,6 +458,12 @@ void RunServer()
 
 int main(int argc, char** argv) 
 {
-    RunServer();
+    bool enable_ssl = false;
+    if (argc > 1) {
+        std::string param = argv[1];
+        if (param == "-s")
+            enable_ssl = true;
+    }
+    RunServer(enable_ssl);
     return 0;
 }

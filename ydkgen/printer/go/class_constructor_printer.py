@@ -27,6 +27,7 @@ from ydkgen.builder import TypesExtractor
 from pyang.types import Decimal64TypeSpec, PathTypeSpec, UnionTypeSpec
 from ydkgen.printer.meta_data_util import get_class_docstring, get_meta_info_data, format_range_string
 from .function_printer import FunctionPrinter
+from ydkgen.common import is_list_element
 
 class ClassConstructorPrinter(FunctionPrinter):
     def __init__(self, ctx, clazz, leafs, identity_subclasses):
@@ -39,8 +40,12 @@ class ClassConstructorPrinter(FunctionPrinter):
         self.ctx.lvl_inc()
 
     def print_function_body(self):
-        self.ctx.writeln('parent types.Entity')
+        self.ctx.writeln('EntityData types.CommonEntityData')
         self.ctx.writeln('YFilter yfilter.YFilter')
+        if is_list_element(self.clazz):
+            self.ctx.writeln('YListKey string')
+        if self.clazz.stmt.search_one('presence') is not None:
+            self.ctx.writeln('YPresence bool')
         self._print_inits()
 
     def _print_docstring(self):
@@ -68,7 +73,6 @@ class ClassConstructorPrinter(FunctionPrinter):
             self.ctx.bline()
             prop = self.leafs[index]
             index += 1
-            leaf_comments = []
 
             leaf_name = prop.go_name()
             type_name = get_type_name(prop.property_type)
@@ -101,7 +105,7 @@ class ClassConstructorPrinter(FunctionPrinter):
             self.ctx.bline()
 
             self.ctx.writeln('%s %s' % (
-                prop.go_name(), prop.property_type.qualified_go_name()))
+                prop.property_type.go_name(), prop.property_type.qualified_go_name()))
 
     def _print_child_inits_many(self, prop):
         if (prop.is_many and isinstance(prop.property_type, Class)
@@ -112,8 +116,8 @@ class ClassConstructorPrinter(FunctionPrinter):
             self.ctx.writelns(comments)
             self.ctx.bline()
 
-            self.ctx.writeln('%s []%s' % (
-                prop.go_name(), prop.property_type.qualified_go_name()))
+            self.ctx.writeln('%s []*%s' % (
+                prop.property_type.go_name(), prop.property_type.qualified_go_name()))
 
     def _get_formatted_comment(self, comments):
         comments = ' '.join(comments)

@@ -27,3 +27,15 @@ gen-api/
 *.sublime-project
 *.sublime-workspace
 *.idea
+scripts
+sdk/cpp/core/tests/confd/ydktest/cli-history
+sdk/cpp/gnmi/tests/main.cpp
+sdk/python/core/ydk/models/ydktest
+test/gnmi_client
+yang/nxos*
+profiles/test/ydk-nxos*
+grpc
+protobuf-3.5.0
+sdk/python/gnmi/build
+sdk/python/gnmi/dist
+sdk/python/gnmi/ydk_service_gnmi.egg-info

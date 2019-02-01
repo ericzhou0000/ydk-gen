@@ -22,11 +22,13 @@
 #include <ydk/path_api.hpp>
 #include <ydk_ydktest/ydktest_sanity.hpp>
 #include <ydk_ydktest/ydktest_sanity_types.hpp>
+#include <ydk_ydktest/ydktest_sanity_typedefs.hpp>
 #include <ydk_ydktest/oc_pattern.hpp>
 
 #include <ydk_ydktest_new/ietf_system.hpp>
 
 #include <ydk_ydktest/openconfig_routing_policy.hpp>
+#include <ydk_ydktest/openconfig_interfaces.hpp>
 
 #include "config.hpp"
 #include "catch.hpp"
@@ -37,8 +39,8 @@ using namespace ydktest_new;
 using namespace ydk;
 
 std::string XML_OC_PATTERN_PAYLOAD = R"(<oc-A xmlns="http://cisco.com/ns/yang/oc-pattern">
-  <a>Hello</a>
-<B><b>Hello</b></B>
+  <a>xyz</a>
+<B><b>xyz</b></B>
 </oc-A>
 )";
 
@@ -190,77 +192,82 @@ std::string JSON_RUNNER_PAYLOAD_2 = R"({
 void
 config_runner_2(ydktest_sanity::Runner *runner)
 {
-    auto l_1 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata>();
-    auto l_2 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata>();
-    auto s_11 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_12 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_21 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_22 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto l_1 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata>();
+    auto l_2 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata>();
+    auto s_11 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_12 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_21 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_22 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
 
     l_1->number = 21;
     l_1->name = "l21name";
-    l_1->parent = runner->two_list.get();
     l_2->number = 22;
     l_2->name = "l22name";
-    l_2->parent = runner->two_list.get();
     s_11->number = 211;
     s_11->name = "s211name";
-    s_11->parent = l_1.get();
     s_12->number = 212;
     s_12->name = "s212name";
-    s_12->parent = l_1.get();
     s_21->number = 221;
     s_21->name = "s221name";
-    s_21->parent = l_2.get();
     s_22->number = 222;
     s_22->name = "s222name";
-    s_22->parent = l_2.get();
 
-    l_1->subl1.push_back(std::move(s_11));
-    l_1->subl1.push_back(std::move(s_12));
-    l_2->subl1.push_back(std::move(s_21));
-    l_2->subl1.push_back(std::move(s_22));
+    l_1->subl1.append(s_11);
+    l_1->subl1.append(s_12);
+    l_2->subl1.append(s_21);
+    l_2->subl1.append(s_22);
 
-    runner->two_list->ldata.push_back(std::move(l_1));
-    runner->two_list->ldata.push_back(std::move(l_2));
+    runner->two_list->ldata.append(l_1);
+    runner->two_list->ldata.append(l_2);
 }
 
 void
 config_runner_1(ydktest_sanity::Runner *runner)
 {
-    auto l_1 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata>();
-    auto l_2 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata>();
-    auto s_11 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_12 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_21 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
-    auto s_22 = std::make_unique<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto l_1 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata>();
+    auto l_2 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata>();
+    auto s_11 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_12 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_21 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
+    auto s_22 = std::make_shared<ydktest_sanity::Runner::TwoList::Ldata::Subl1>();
 
     l_1->number = 11;
     l_1->name = "l11name";
-    l_1->parent = runner->two_list.get();
     l_2->number = 12;
     l_2->name = "l12name";
-    l_2->parent = runner->two_list.get();
     s_11->number = 111;
     s_11->name = "s111name";
-    s_11->parent = l_1.get();
     s_12->number = 112;
     s_12->name = "s112name";
-    s_12->parent = l_1.get();
     s_21->number = 121;
     s_21->name = "s121name";
-    s_21->parent = l_2.get();
     s_22->number = 122;
     s_22->name = "s122name";
-    s_22->parent = l_2.get();
 
-    l_1->subl1.push_back(std::move(s_11));
-    l_1->subl1.push_back(std::move(s_12));
-    l_2->subl1.push_back(std::move(s_21));
-    l_2->subl1.push_back(std::move(s_22));
+    l_1->subl1.append(s_11);
+    l_1->subl1.append(s_12);
+    l_2->subl1.append(s_21);
+    l_2->subl1.append(s_22);
 
-    runner->two_list->ldata.push_back(std::move(l_1));
-    runner->two_list->ldata.push_back(std::move(l_2));
+    runner->two_list->ldata.append(l_1);
+    runner->two_list->ldata.append(l_2);
+}
+
+TEST_CASE("typedef_encode")
+{
+    CodecServiceProvider codec_provider{EncodingFormat::XML};
+    CodecService codec_service{};
+
+    // Create class System and set values for its members
+    auto system = std::make_unique<ydktest_sanity_typedefs::System>();
+    system->id = 22;
+    system->mode = ydktest_sanity_typedefs::TopMode::stand_alone;
+
+    std::string xml = codec_service.encode(codec_provider, *system, true);
+
+    auto system_decoded = codec_service.decode(codec_provider, xml, std::make_unique<ydktest_sanity_typedefs::System>());
+
+    CHECK(*system_decoded == *system);
 }
 
 TEST_CASE("single_encode")
@@ -289,7 +296,8 @@ TEST_CASE("multiple_encode")
     config_runner_1(runner1.get());
     config_runner_2(runner2.get());
 
-    runner2->two_list->ldata[0]->name = "modified";
+    auto ldata = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata*> (runner2->two_list->ldata[0].get());
+	ldata->name = "modified";
 
     std::map<std::string, std::unique_ptr<Entity>> entity_map;
     entity_map["runner1"] = std::move(runner1);
@@ -301,27 +309,27 @@ TEST_CASE("multiple_encode")
     CHECK(payload_map["runner2"] == XML_RUNNER_PAYLOAD_2);
 }
 
-// YCPPCoreError: YCPPCodecError:Unknown element "oc-A".. Path:
-TEST_CASE("test_oc_pattern")
-{
-//TODO
+// YCoreError: YCodecError:Unknown element "oc-A".. Path:
+//TEST_CASE("test_oc_pattern")
+//{
+////TODO
 //    CodecServiceProvider codec_provider{EncodingFormat::JSON};
 //    CodecService codec_service{};
-//
-//    auto entity = codec_service.decode(codec_provider, "{\n"
-//            "  \"oc-pattern:oc-A\": [\n"
-//            "    {\n"
-//            "      \"a\": \"Hello\",\n"
-//            "      \"B\": {\n"
-//            "        \"b\": \"Hello\"\n"
-//            "      }\n"
-//            "    }\n"
-//            "  ]\n"
-//            "}", make_unique<oc_pattern::OcA>());
+//    string payload = R"({
+//  "oc-pattern:oc-A": [
+//    {
+//      "a": "xyz",
+//      "B": {
+//        "b": "xyz"
+//      }
+//    }
+//  ]
+//})";
+//    auto entity = codec_service.decode(codec_provider, payload, make_unique<oc_pattern::OcA>());
 //
 //    oc_pattern::OcA * entity_ptr = dynamic_cast<oc_pattern::OcA*>(entity.get());
-//    CHECK(entity_ptr->a.get() == "Hello");
-}
+//    CHECK(entity_ptr->a.get() == "xyz");
+//}
 
 TEST_CASE("enum_2")
 {
@@ -345,18 +353,24 @@ TEST_CASE("single_decode")
 
     ydktest_sanity::Runner * entity_ptr = dynamic_cast<ydktest_sanity::Runner*>(entity.get());
 
-    CHECK(entity_ptr->two_list->ldata[0]->number.get() == "11");
-    CHECK(entity_ptr->two_list->ldata[0]->name.get() == "l11name");
-    CHECK(entity_ptr->two_list->ldata[0]->subl1[0]->number.get() == "111");
-    CHECK(entity_ptr->two_list->ldata[0]->subl1[0]->name.get() == "s111name");
-    CHECK(entity_ptr->two_list->ldata[0]->subl1[1]->number.get() == "112");
-    CHECK(entity_ptr->two_list->ldata[0]->subl1[1]->name.get() == "s112name");
-    CHECK(entity_ptr->two_list->ldata[1]->number.get() == "12");
-    CHECK(entity_ptr->two_list->ldata[1]->name.get() == "l12name");
-    CHECK(entity_ptr->two_list->ldata[1]->subl1[0]->number.get() == "121");
-    CHECK(entity_ptr->two_list->ldata[1]->subl1[0]->name.get() == "s121name");
-    CHECK(entity_ptr->two_list->ldata[1]->subl1[1]->number.get() == "122");
-    CHECK(entity_ptr->two_list->ldata[1]->subl1[1]->name.get() == "s122name");
+    auto ldata0 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata*> (entity_ptr->two_list->ldata[0].get());
+    auto ldata1 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata*> (entity_ptr->two_list->ldata[1].get());
+    auto subl00 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata::Subl1*> (ldata0->subl1[0].get());
+    auto subl01 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata::Subl1*> (ldata0->subl1[1].get());
+    auto subl10 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata::Subl1*> (ldata1->subl1[0].get());
+    auto subl11 = dynamic_cast<ydktest_sanity::Runner::TwoList::Ldata::Subl1*> (ldata1->subl1[1].get());
+    CHECK(ldata0->number.get() == "11");
+    CHECK(ldata0->name.get() == "l11name");
+    CHECK(subl00->number.get() == "111");
+    CHECK(subl00->name.get() == "s111name");
+    CHECK(subl01->number.get() == "112");
+    CHECK(subl01->name.get() == "s112name");
+    CHECK(ldata1->number.get() == "12");
+    CHECK(ldata1->name.get() == "l12name");
+    CHECK(subl10->number.get() == "121");
+    CHECK(subl10->name.get() == "s121name");
+    CHECK(subl11->number.get() == "122");
+    CHECK(subl11->name.get() == "s122name");
 }
 
 TEST_CASE("encode_decode")
@@ -440,7 +454,7 @@ TEST_CASE("invalid_decode")
     CodecServiceProvider codec_provider{EncodingFormat::XML};
     CodecService codec_service{};
 
-    CHECK_THROWS_AS(codec_service.decode(codec_provider, invalid_xml, make_unique<ydktest_sanity::Runner>()), YCPPModelError);
+    CHECK_THROWS_AS(codec_service.decode(codec_provider, invalid_xml, make_unique<ydktest_sanity::Runner>()), YModelError);
 
 }
 
@@ -458,4 +472,78 @@ TEST_CASE("embedded_quote_codec")
 
     auto rp_decode = codec_service.decode(codec_provider, xml, make_unique<openconfig_routing_policy::RoutingPolicy>());
     CHECK(*rp == *rp_decode);
+}
+
+TEST_CASE("TestSessionPathAnyxml")
+{
+    ydk::path::Codec s{};
+    ydk::path::NetconfSession session{"127.0.0.1", "admin", "admin",  12022};
+    ydk::path::RootSchemaNode& root_schema = session.get_root_schema();
+
+    std::string xml = R"(<?xml version="1.0"?><runner xmlns="http://cisco.com/ns/yang/ydktest-sanity"><ytypes><built-in-t><bits-value>disable-nagle auto-sense-speed</bits-value></built-in-t></ytypes></runner>)";
+    auto a = s.decode(root_schema, xml, EncodingFormat::XML);
+    REQUIRE(a!=nullptr);
+
+    xml = R"(<?xml version="1.0"?>
+    <runner xmlns="http://cisco.com/ns/yang/ydktest-sanity"><ytypes><built-in-t><bits-value>disable-nagle auto-sense-speed</bits-value></built-in-t></ytypes></runner>)";
+    a = s.decode(root_schema, xml, EncodingFormat::XML);
+    REQUIRE(a!=nullptr);
+}
+
+TEST_CASE("string_data_with_colon")
+{
+    ydk::path::Repository repo{};
+
+    ydk::path::NetconfSession session{repo,"127.0.0.1", "admin", "admin",  12022};
+    ydk::path::RootSchemaNode& schema = session.get_root_schema();
+
+    auto & runner = schema.create_datanode("ydktest-sanity:runner", "");
+    runner.create_datanode("two/name", "runner:two:name");
+
+    ydk::path::Codec s{};
+    auto xml = s.encode(runner, ydk::EncodingFormat::XML, false);
+}
+
+TEST_CASE("passive_codec")
+{
+    string e = R"(<runner xmlns="http://cisco.com/ns/yang/ydktest-sanity"><passive><name>xyz</name><interfac><test>abc</test></interfac><testc xmlns="http://cisco.com/ns/yang/ydktest-sanity-augm"><xyz><xyz>25</xyz></xyz></testc></passive></runner>)";
+
+    auto i = make_shared<ydktest_sanity::Runner::Passive::Interfac>();
+    i->test = "abc";
+
+    auto passive = make_shared<ydktest_sanity::Runner::Passive>();
+    passive->name = "xyz";
+    passive->interfac.append(i);
+
+    auto r_1 = make_shared<ydktest_sanity::Runner>();
+    r_1->passive.append(passive);
+
+    passive->testc->xyz = make_shared<ydktest_sanity::Runner::Passive::Testc::Xyz>();
+    passive->testc->xyz->parent = passive.get();
+    passive->testc->xyz->xyz = 25;
+
+    CodecServiceProvider codec_provider{EncodingFormat::XML};
+    CodecService codec_service{};
+    auto xml = codec_service.encode(codec_provider, *r_1, false);
+    REQUIRE(xml == e);
+
+    auto r = codec_service.decode(codec_provider, xml, make_shared<ydktest_sanity::Runner>());
+
+    //REQUIRE(*r != *r_1); //TODO known failure
+}
+
+TEST_CASE("json_encode_decode")
+{
+    CodecServiceProvider codec_provider{EncodingFormat::JSON};
+    CodecService codec_service{};
+
+    auto ifc = make_shared<openconfig_interfaces::Interfaces::Interface>();
+    ifc->name = "Loopback10";
+    openconfig_interfaces::Interfaces ifcs{};
+    ifcs.interface.append(ifc);
+    auto payload = codec_service.encode(codec_provider, ifcs);
+
+    auto ifcs_d = codec_service.decode(codec_provider, payload, make_shared<openconfig_interfaces::Interfaces>());
+    openconfig_interfaces::Interfaces * entity_ptr = dynamic_cast<openconfig_interfaces::Interfaces*>(ifcs_d.get());
+    REQUIRE(ifcs == *entity_ptr);
 }

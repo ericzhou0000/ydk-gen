@@ -6,6 +6,10 @@ YDK Filters
 .. go:package:: ydk/yfilter
     :synopsis: YDK Go Filters
 
+.. code-block:: sh
+
+   import "github.com/CiscoDevNet/ydk-go/ydk/types/yfilter"
+
 Filters represent edit operation for YDK objects as specified in
 `NETCONF RFC 6241 <https://tools.ietf.org/html/rfc6241#section-7.2>`_,
 defaults to ``not_set``, and  ``read`` operation providing functionality
@@ -13,7 +17,7 @@ to read a singal leaf.
 Operations as defined under netconf edit-config operation attribute in
 `RFC 6241 <https://tools.ietf.org/html/rfc6241#section-7.2>`_ and for
 filtering read operations by leaf to be used with various :go:struct:`Services<ydk/services>` and 
-:go:struct:`entities<ydk/types/Entity>`.
+:ref:`Entity <types-entity>`.
 
 .. _y-filter:
 
@@ -21,7 +25,7 @@ filtering read operations by leaf to be used with various :go:struct:`Services<y
 
     Represents the NETCONF edit config operations with underlying type ``int``
 
-    .. attribute:: NotSet
+    .. :noindex:attribute:: NotSet
 
         Represented by a value of 0.
 
@@ -50,7 +54,7 @@ filtering read operations by leaf to be used with various :go:struct:`Services<y
         containing this attribute is added to the configuration if
         and only if the configuration data does not already exist in
         the configuration datastore. If the configuration data
-        exists, an error (:go:struct:`YGOServiceProviderError<ydk/types/YGOServiceProviderError>`) will be thrown
+        exists, an error (:go:struct:`YServiceProviderError<ydk/errors/YServiceProviderError>`) will be thrown
         with XML error message.
 
     .. attribute:: Remove
@@ -71,7 +75,7 @@ filtering read operations by leaf to be used with various :go:struct:`Services<y
         containing this attribute is deleted from the configuration
         if and only if the configuration data currently exists in
         the configuration datastore. If the configuration data does
-        not exist, an :go:struct:`YGOServiceProviderError<ydk/types/YGOServiceProviderError>` will be
+        not exist, an :go:struct:`YServiceProviderError<ydk/errors/YServiceProviderError>` will be
         thrown with XML error message.
 
     .. attribute:: Replace
@@ -83,6 +87,14 @@ filtering read operations by leaf to be used with various :go:struct:`Services<y
         in the configuration datastore identified by the target
         parameter.  If no such configuration data exists in the
         configuration datastore, it is created.
+
+    .. attribute:: Update
+
+        Represented by a value of 7.
+
+        Currently used only for gNMI Services. The configuration data identified
+        by the elementcontaining this attribute updates any related configuration.
+        If no such configuration data exists in the configuration, it is created.
 
 .. function:: (yf YFilter) String()
 

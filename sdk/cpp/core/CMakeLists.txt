@@ -1,7 +1,6 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.0.0)
 cmake_policy(SET CMP0048 NEW)
 project(ydk VERSION 0.8.1 LANGUAGES C CXX)
-
 
 set(YDK_DESCRIPTION "YANG Development Kit Library. The library for  YDK API.")
 
@@ -23,7 +22,7 @@ bundle profile and the ydk-gen tool.")
 
 set (CPACK_PACKAGE_CONTACT "ydk-admin@cisco.com")
 set (CPACK_PACKAGE_VENDOR "Cisco")
-set (CPACK_PACKAGE_INSTALL_DIRECTORY "/usr/local")
+set(CPACK_SET_DESTDIR true)
 
 # MAC OS -- not working
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -84,7 +83,7 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         set (CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
         set (CPACK_RPM_PACKAGE_VENDOR ${CPACK_PACKAGE_VENDOR})
         set (CPACK_RPM_PACKAGE_URL "https://github.com/CiscoDevNet/ydk-cpp")
-        set (CPACK_RPM_PACKAGE_REQUIRES "epel-release, python-pip, python-devel, libxml2-devel, libxslt-devel, libssh-devel, libcurl-devel, libtool, clang, cmake3, pcre-devel")
+        set (CPACK_RPM_PACKAGE_REQUIRES "python-pip, python-devel, libxml2-devel, libxslt-devel, libssh-devel, libcurl-devel, libtool, cmake3, pcre-devel")
 
         # <name>-<version>-<release>.<architecture>.(src).rpm
         # libydk-0.6.0-0.1.alpha.x86_64.rpm  // RPM
@@ -94,7 +93,6 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif()
 
 include(CPack)
-include(FindProtobuf)
 
 # include custom Modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
@@ -116,8 +114,13 @@ set(HOME_DIRECTORY $ENV{HOME})
 
 set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG   "-g3 -O0")
 
+if(COVERAGE STREQUAL True)
+    set(CMAKE_CXX_FLAGS_DEBUG   "-g3 -O0 -fprofile-arcs -ftest-coverage")
+    set(CMAKE_BUILD_TYPE debug)
+else()
+    set(CMAKE_CXX_FLAGS_DEBUG   "-g3 -O0")
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL debug)
     option(ENABLE_BUILD_TESTS "Build tests" ON)
@@ -127,16 +130,13 @@ else()
     option(ENABLE_VALGRIND_TESTS "Build tests with valgrind" OFF)
 endif()
 
-set(libgnmi_sources
-    ${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi/generated/gnmi.grpc.pb.cc
-    ${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi/generated/gnmi.pb.cc)
-
 # Set LibYDK variables
 set(libydk_src
     src/bits.cpp
     src/codec_provider.cpp
     src/codec_service.cpp
     src/capabilities_parser.cpp
+    src/common_utilities.cpp
     src/crud_service.cpp
     src/entity.cpp
     src/entity_data_node_walker.cpp
@@ -153,11 +153,7 @@ set(libydk_src
     src/netconf_tcp_client.cpp
     src/netconf_provider.cpp
     src/netconf_service.cpp
-    src/path/netconf_session.cpp
-    src/gnmi_client.cpp
-    src/gnmi_provider.cpp
-    src/path/gnmi_session.cpp
-    src/gnmi_service.cpp
+    src/netconf_session.cpp
     src/network_topology.cpp
     src/opendaylight_parser.cpp
     src/opendaylight_provider.cpp
@@ -167,13 +163,14 @@ set(libydk_src
     src/value.cpp
     src/value_list.cpp
     src/xml_subtree_codec.cpp
+    src/xml_util.cpp
     src/ydk_operation.cpp
     src/ydk.cpp
     src/ydk_yang.cpp
     src/path/annotation.cpp
     src/path/capability.cpp
     src/path/data_node.cpp
-    src/path/netconf_model_provider.cpp
+    src/netconf_model_provider.cpp
     src/path/path.cpp
     src/path/repository.cpp
     src/path/restconf_session.cpp
@@ -197,9 +194,11 @@ set(spdlog_fmt_bundled_include_location include/spdlog/fmt/bundled)
 set(spdlog_sinks_include_location include/spdlog/sinks)
 
 set(libydk_install_headers
+    src/netconf_model_provider.hpp
     src/capabilities_parser.hpp
     src/codec_provider.hpp
     src/codec_service.hpp
+    src/common_utilities.hpp
     src/crud_service.hpp
     src/entity_data_node_walker.hpp
     src/entity_lookup.hpp
@@ -207,10 +206,10 @@ set(libydk_install_headers
     src/errors.hpp
     src/executor_service.hpp
     src/filters.hpp
+    src/ietf_parser.hpp
+    src/json.hpp
+    src/logger.hpp
     src/logging_callback.hpp
-    src/gnmi_provider.hpp
-    src/gnmi_client.hpp
-    src/gnmi_service.hpp
     src/netconf_client.hpp
     src/netconf_provider.hpp
     src/netconf_service.hpp
@@ -223,6 +222,7 @@ set(libydk_install_headers
     src/service_provider.hpp
     src/types.hpp
     src/xml_subtree_codec.hpp
+    src/xml_util.hpp
     src/validation_service.hpp
     src/ydk.h)
 
@@ -289,20 +289,18 @@ set(netconf_objs
     yinparser.o
 )
 
-# Set gNMI variables
-set(libgnmi_headers
-    ${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi/generated/gnmi.grpc.pb.h
-    ${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi/generated/gnmi.pb.h)
-
 # Set LibYang variables
 set(libyang_location ${CMAKE_CURRENT_BINARY_DIR}/project_libyang/src/project_libyang)
+set(libyang_build_location ${CMAKE_CURRENT_BINARY_DIR}/project_libyang/src/project_libyang-build)
 
 set(libyang_headers
     ${libyang_location}/src/common.h
     ${libyang_location}/src/context.h
     ${libyang_location}/src/dict.h
     ${libyang_location}/src/dict_private.h
-    ${libyang_location}/src/libyang.h
+    ${libyang_location}/src/extensions.h
+    ${libyang_build_location}/src/extensions_config.h
+    ${libyang_build_location}/src/libyang.h
     ${libyang_location}/src/parser.h
     ${libyang_location}/src/parser_yang.h
     ${libyang_location}/src/parser_yang_bis.h
@@ -322,6 +320,7 @@ set(yang_objs
     common.c.o
     context.c.o
     dict.c.o
+    extensions.c.o
     log.c.o
     parser.c.o
     parser_json.c.o
@@ -346,8 +345,6 @@ set(yang_objs
     yang_types.c.o
 )
 
-set(protobuf_MODULE_COMPATIBLE TRUE)
-
 # Find dependent libraries
 find_library(curl_location curl)
 find_library(ssh_threads_location ssh_threads)
@@ -355,14 +352,14 @@ find_library(xslt_location xslt)
 find_library(pcre_location pcre)
 find_library(pthread_location pthread)
 find_library(dl_location dl)
+find_library(m_location m)
 find_package(LibXml2 REQUIRED)
 find_package(LibSSH REQUIRED)
-find_package(Protobuf REQUIRED)
-find_package(GRPC REQUIRED)
 
 # Add LibNetconf
 set(libnetconf_include_location include/libnetconf)
 set(libnetconf_headers_location ${CMAKE_CURRENT_BINARY_DIR}/project_libnetconf/headers)
+
 include(ExternalProject)
 ExternalProject_Add(project_libnetconf
     PREFIX "${CMAKE_CURRENT_BINARY_DIR}/project_libnetconf"
@@ -399,38 +396,16 @@ add_library(libnetconf STATIC IMPORTED)
 set_property(TARGET libnetconf PROPERTY IMPORTED_LOCATION ${libnetconf_archive})
 add_dependencies(libnetconf project_libnetconf)
 
-
-# Add LibgNMI
-set(libgnmi_headers_location ${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi/generated)
-
-ExternalProject_Add(
-    download_generate_proto_cpp
-    PREFIX "${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi"
-    DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi"
-    DOWNLOAD_NAME "gnmi.proto"
-    DOWNLOAD_COMMAND curl https://raw.githubusercontent.com/abhikeshav/reference/master/rpc/gnmi/gnmi.proto > gnmi.proto
-    CONFIGURE_COMMAND ""
-    SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi"
-    BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/project_libgnmi"
-    BUILD_COMMAND mkdir -p generated && ${PROTOBUF_PROTOC_EXECUTABLE} --cpp_out generated/ gnmi.proto && ${PROTOBUF_PROTOC_EXECUTABLE} --grpc_out generated/ --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN} gnmi.proto
-    INSTALL_COMMAND ""
-)
-
-add_custom_command(OUTPUT ${libgnmi_sources}
-  DEPENDS download_generate_proto_cpp
-  COMMENT "Generating GNMI code"
-  VERBATIM
-)
-
-add_custom_target(ydk_gnmi ALL DEPENDS ${libgnmi_sources})
+set(LIBYANG_EXT_PLUGINS_DIR ${LIB_INSTALL_DIR}/libyang)
+message("Set libyang plugin installation directory to: ${LIBYANG_EXT_PLUGINS_DIR}")
 
 # Add LibYang
 set(libyang_include_location include/libyang)
 set(libyang_headers_location ${CMAKE_CURRENT_BINARY_DIR}/project_libyang/headers)
 ExternalProject_Add(project_libyang
     PREFIX "${CMAKE_CURRENT_BINARY_DIR}/project_libyang"
-    URL "https://github.com/manradhaCisco/libyang/archive/master.zip"
-    CMAKE_ARGS -DSTATIC=true -DCMAKE_BUILD_TYPE=Debug
+    URL "https://github.com/ygorelik/libyang/archive/master.zip"
+    CMAKE_ARGS -DSTATIC=true -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_LIBDIR=lib
     INSTALL_DIR "${libyang_location}"
     INSTALL_COMMAND mkdir -p ${libyang_headers_location}/libyang && cp ${libyang_headers} ${libyang_headers_location}/libyang
 )
@@ -466,8 +441,6 @@ include_directories(
     ${LIBXML2_INCLUDE_DIR}
     ${libnetconf_headers_location}
     ${libnetconf_location}/headers
-    ${Protobuf_INCLUDE_DIR}
-    ${libgnmi_headers_location}
     ${libyang_headers_location}
     ${libyang_location}/headers
     ${PROJECT_SOURCE_DIR}/src
@@ -475,7 +448,7 @@ include_directories(
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_library(ydk STATIC ${libydk_src} ${libgnmi_sources} ${libnetconf_inc_objs} ${libyang_inc_objs})
+add_library(ydk STATIC ${libydk_src} ${libnetconf_inc_objs} ${libyang_inc_objs})
 
 target_link_libraries(ydk
     ${LIBXML2_LIBRARIES}
@@ -485,25 +458,28 @@ target_link_libraries(ydk
     ${pcre_location}
     ${xslt_location}
     ${pthread_location}
-    ${dl_location}
     libnetconf
     libyang
-    ${GRPC_GRPC++_LIBRARY}
     -rdynamic
-    ${PROTOBUF_LIBRARY}
+    ${dl_location}
 )
 
 set_property(TARGET ydk PROPERTY CXX_STANDARD 11)
 set_property(TARGET ydk PROPERTY CXX_STANDARD_REQUIRED ON)
+set(libyang_extension_lib 
+	${libyang_build_location}/src/extensions/libyang_ext_test${CMAKE_SHARED_LIBRARY_SUFFIX}
+	${libyang_build_location}/src/extensions/metadata${CMAKE_SHARED_LIBRARY_SUFFIX}
+	${libyang_build_location}/src/extensions/nacm${CMAKE_SHARED_LIBRARY_SUFFIX}
+)
 
 install(TARGETS ydk DESTINATION ${LIB_INSTALL_DIR})
 install(FILES ${libydk_install_headers} DESTINATION ${INCLUDE_INSTALL_DIR})
-install(FILES ${libgnmi_headers} DESTINATION ${INCLUDE_INSTALL_DIR})
 install(FILES ${SPDLOG_HEADERS} DESTINATION ${spdlog_include_location})
 install(FILES ${SPDLOG_DETAILS_HEADERS} DESTINATION ${spdlog_details_include_location})
 install(FILES ${SPDLOG_FMT_HEADERS} DESTINATION ${spdlog_fmt_include_location})
 install(FILES ${SPDLOG_FMT_BUNDLED_HEADERS} DESTINATION ${spdlog_fmt_bundled_include_location})
 install(FILES ${SPDLOG_SINKS_HEADERS} DESTINATION ${spdlog_sinks_include_location})
+install(FILES ${libyang_extension_lib} DESTINATION ${LIBYANG_EXT_PLUGINS_DIR})
 
 # generate doxygen documentation for ydk_core API
 find_package(Doxygen)

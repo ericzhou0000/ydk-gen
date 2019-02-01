@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.0.0)
 cmake_policy(SET CMP0048 NEW)
 project(samples)
 
@@ -10,7 +10,6 @@ set(samples     bgp_create
                 bgp_update 
                 bgp_read
                 bgp_delete
-                bgp_gnmi_create
                 bgp_routing_policy_create
                 isis_xr_create
                 isis_xr_delete
@@ -42,8 +41,6 @@ find_library(pcre_location pcre)
 find_library(xslt_location xslt)
 find_library(pthread_location pthread)
 find_library(dl_location dl)
-find_package(Protobuf REQUIRED)
-find_package(GRPC REQUIRED)
 
 include_directories(SYSTEM)
 
@@ -68,9 +65,7 @@ foreach(sample IN LISTS samples)
             ${xslt_location}
             ${pthread_location}
             ${dl_location}
-            ${GRPC_GRPC++_LIBRARY}
-	        -rdynamic
-            ${PROTOBUF_LIBRARY}
+ 	        -rdynamic
             )
 
     set_property(TARGET ${sample} PROPERTY CXX_STANDARD 11)

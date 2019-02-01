@@ -135,16 +135,28 @@ def iscppkeyword(word):
                     'explicit', 'class', 'if', 'try', 'while', 'and', 'or',
                     'const', 'continue', 'double', 'else', 'value', 'namespace',
                     'operation', 'volatile', 'register', 'short', 'extern',
-                    'mutable', 'unsigned', 'struct', 'switch', 'void', 'typedef',
-                    'typeid', 'using', 'char', 'goto', 'not','clock')
+                    'mutable', 'unsigned', 'struct', 'switch', 'void', 'typedef', 'typename',
+                    'typeid', 'using', 'char', 'goto', 'not','clock', 'major')
 
 def isgokeyword(word):
     return word in (
+        # keywords
         'break', 'default', 'func', 'interface', 'select',
         'case', 'defer', 'go', 'map', 'struct', 'chan',
         'else', 'goto', 'package', 'switch', 'const',
         'fallthrough', 'if', 'range', 'type', 'continue',
-        'for', 'import', 'return', 'var',)
+        'for', 'import', 'return', 'var',
+        # types
+        'bool', 'byte', 'complex64', 'complex128', 'error', 'float32', 'float64',
+        'int', 'int8', 'int16', 'int32', 'int64', 'rune', 'string',
+        'uint', 'uint8', 'uint16', 'uint32', 'uint64', 'uintptr',
+        # constants
+        'true', 'false', 'iota',
+        # zero value
+        'nil',
+        # functions
+        'append', 'cap', 'close', 'complex', 'copy', 'delete', 'imag', 'len',
+        'make', 'new', 'panic', 'print', 'println', 'real', 'recover',)
 
 def get_sphinx_ref_label(named_element):
     return named_element.fqn().replace('.', '_')
@@ -152,13 +164,13 @@ def get_sphinx_ref_label(named_element):
 def split_to_words(input_text):
     words = []
     ''' A word boundary starts if the current character is
-    in Caps and the previous character is in lowercase
+    in Caps and the previous character is in lower case
     for example NetworkElement , at Element the E is in Caps
-    and the previoud character is k in lower
+    and the previous character is k in lower
 
     or if the current character is in Caps and the next character
     in in lower case ApplicationCLIEvent for Event while reaching E
-    the next chracter is v
+    the next character is v
 
     '''
     word = None
@@ -458,3 +470,18 @@ def get_qualified_yang_name(clazz):
     if clazz.owner.stmt.i_module.arg != clazz.stmt.i_module.arg:
         yang_name = clazz.stmt.i_module.arg + ':' + yang_name
     return yang_name
+
+
+def get_unclashed_name(element, iskeyword):
+    name = snake_case(element.stmt.unclashed_arg if hasattr(element.stmt, 'unclashed_arg') else element.stmt.arg)
+    if iskeyword(name) or iskeyword(name.lower()) or (
+            element.owner is not None and element.stmt.arg.lower() == element.owner.stmt.arg.lower()):
+        name = '%s_' % name
+    return name
+
+
+def snake_case(input_text):
+    s = input_text.replace('-', '_')
+    s = s.replace('.', '_')
+    return s.lower()
+

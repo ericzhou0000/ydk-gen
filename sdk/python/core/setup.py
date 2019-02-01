@@ -14,8 +14,10 @@
 # limitations under the License.
 # ------------------------------------------------------------------
 
-"""Setup for YDK
 """
+Setup for YDK core package
+"""
+
 from __future__ import print_function
 import os
 import subprocess
@@ -24,17 +26,13 @@ import sysconfig
 from setuptools.command.build_ext import build_ext
 from setuptools import setup, Extension, find_packages
 
+# Define and modify version number and package name here
 
-NMSP_PKG_NAME = "$PACKAGE$"
-NMSP_PKG_VERSION = "$VERSION$"
-NMSP_PKG_DEPENDENCIES = ["$DEPENDENCY$"]
-
-# Define and modify version number and package name here,
-# Namespace packages are share same prefix: "ydk-models"
 NAME = 'ydk'
-VERSION = '0.8.1-alpha'
-INSTALL_REQUIREMENTS = ['pybind11>=2.1.1']
 
+VERSION = '0.8.1'
+
+INSTALL_REQUIREMENTS = ['pybind11>=2.1.1']
 
 LONG_DESCRIPTION = '''
                    The YANG Development Kit (YDK) is a Software Development Kit
@@ -46,10 +44,8 @@ LONG_DESCRIPTION = '''
                     bundles that are based on YANG models.
                    '''
 
-
 YDK_PACKAGES = find_packages(exclude=['contrib', 'docs*', 'tests*',
                                       'ncclient', 'samples'])
-
 
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
@@ -80,13 +76,17 @@ class YdkBuildExtension(build_ext):
             import pybind11
 
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        coverage_compiler_flag = '-DCOVERAGE=False'
+        if 'YDK_COVERAGE' in os.environ:
+            coverage_compiler_flag = '-DCOVERAGE=True'
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={0}'.format(extdir),
                       '-DPYBIND11_INCLUDE={0};{1}'.format(
                                       pybind11.get_include(),
                                       pybind11.get_include(user=True)),
                       '-DPYTHON_VERSION={0}'.format(
                                       get_python_version()),
-                      '-DCMAKE_BUILD_TYPE=Release']
+                      '-DCMAKE_BUILD_TYPE=Release',
+                      coverage_compiler_flag]
 
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)

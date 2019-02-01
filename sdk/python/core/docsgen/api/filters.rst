@@ -13,7 +13,7 @@ Filters
         containing this attribute is added to the configuration if
         and only if the configuration data does not already exist in
         the configuration datastore. If the configuration data
-        exists, an :class:`ydk.errors.YPYServiceProviderError` will be thrown
+        exists, an :class:`ydk.errors.YServiceProviderError` will be thrown
         with XML error message.
 
     .. attribute:: delete
@@ -22,7 +22,7 @@ Filters
         containing this attribute is deleted from the configuration
         if and only if the configuration data currently exists in
         the configuration datastore. If the configuration data does
-        not exist, an :class:`ydk.errors.YPYServiceProviderError` will be
+        not exist, an :class:`ydk.errors.YServiceProviderError` will be
         thrown with XML error message.
 
     .. attribute:: merge
@@ -58,3 +58,13 @@ Filters
         When reading configuration or operational data from a network
         device and a specific node, like a leaf or a class, is desired to be read, the yfilter attribute can
         be set to ``YFilter.read`` on that node.
+
+    .. attribute:: update
+
+        The configuration data identified by the element
+        containing this attribute updates any related configuration
+        in the configuration datastore identified by the target
+        parameter.  If no such configuration data exists in the
+        configuration datastore, it is created.
+        
+        **Note.** The ``YFilter.update`` is aplicable only to :py:class:`gNMIService<ydk.gnmi.services.gNMIService>` **set** operation.

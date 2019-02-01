@@ -32,10 +32,12 @@ from .enum_printer import EnumPrinter
 
 class ClassPrinter(FilePrinter):
 
-    def __init__(self, ctx, module_namespace_lookup, one_class_per_module):
+    def __init__(self, ctx, module_namespace_lookup, one_class_per_module, generate_meta, identity_subclasses):
         super(ClassPrinter, self).__init__(ctx)
         self.module_namespace_lookup = module_namespace_lookup
         self.one_class_per_module = one_class_per_module
+        self.identity_subclasses = identity_subclasses
+        self.generate_meta = generate_meta
 
     def print_body(self, unsorted_classes):
         ''' This arranges the classes at the same level
@@ -85,6 +87,16 @@ class ClassPrinter(FilePrinter):
             [nested_class for nested_class in parent.owned_elements if isinstance(nested_class, Class)])
 
     def _print_class_trailer(self, clazz):
+        if self.generate_meta:
+            self.ctx.writeln('@staticmethod')
+            self.ctx.writeln('def _meta_info():')
+            self.ctx.lvl_inc()
+            self.ctx.writeln('from %s import _%s as meta' % (
+                clazz.get_meta_py_mod_name(), clazz.get_package().name))
+            self.ctx.writeln(
+                "return meta._meta_table['%s']['meta_info']" % clazz.qn())
+            self.ctx.lvl_dec()
+        self.ctx.bline()
         self.ctx.lvl_dec()
 
     def _print_class_declaration(self, clazz):
@@ -92,9 +104,10 @@ class ClassPrinter(FilePrinter):
 
         parents = 'Entity'
         if clazz.is_identity():
-            parents = 'Identity'
-        elif len(clazz.extends) > 0:
-            parents = ' ,'.join([sup.qn() for sup in clazz.extends])
+            if len(clazz.extends) > 0:
+                parents = ' ,'.join([sup.qn() for sup in clazz.extends])
+            else:
+                parents = 'Identity'
 
         self.ctx.writeln("class %s(%s):" % (clazz.name, parents))
 
@@ -121,7 +134,8 @@ class ClassPrinter(FilePrinter):
                 leafs.append(prop)
 
     def _print_class_inits(self, clazz, leafs, children):
-        ClassInitsPrinter(self.ctx, self.module_namespace_lookup, self.one_class_per_module).print_output(clazz, leafs, children)
+        ClassInitsPrinter(self.ctx, self.module_namespace_lookup, self.one_class_per_module,
+                          self.identity_subclasses).print_output(clazz, leafs, children)
 
     def _print_class_setattr(self, clazz, leafs):
         ClassSetAttrPrinter(self.ctx, self.one_class_per_module).print_setattr(clazz, leafs)
@@ -132,10 +146,11 @@ class ClassPrinter(FilePrinter):
             self.ctx.lvl_inc()
             self.ctx.writeln('self._top_entity = %s()' % clazz.qn())
             self.ctx.writeln('return self._top_entity')
+            self.ctx.bline()
             self.ctx.lvl_dec()
 
     def _print_bits(self, bits):
         BitsPrinter(self.ctx).print_bits(bits)
 
     def _print_enum(self, enum_class):
-        EnumPrinter(self.ctx).print_enum(enum_class, False)
+        EnumPrinter(self.ctx).print_enum(enum_class, self.generate_meta)

@@ -29,8 +29,9 @@
 #include <functional>
 #include <cstring>
 #include <cassert>
+#include <set>
 #include <unordered_set>
-#include <unordered_map>
+#include <map>
 
 #include "libyang/libyang.h"
 #include "libyang/tree_schema.h"
@@ -48,7 +49,7 @@ namespace ydk {
         std::unordered_set<std::string> segmentalize_module_names(const std::string& value);
 
         class RepositoryPtr : public std::enable_shared_from_this<RepositoryPtr> {
-        public:
+          public:
             explicit RepositoryPtr(ModelCachingOption caching_option);
             explicit RepositoryPtr(const std::string& search_dir, ModelCachingOption caching_option);
             ~RepositoryPtr();
@@ -67,10 +68,10 @@ namespace ydk {
                                                                         const std::string& path,
                                                                         const std::unordered_map<std::string, path::Capability>& lookup_table);
 
-        public:
             std::string path;
+            std::vector<path::Capability> server_caps;
 
-        private:
+          private:
             ly_ctx* create_ly_context();
 
             void load_module_from_capabilities(ly_ctx* ctx, const std::vector<path::Capability>& caps);
@@ -82,7 +83,9 @@ namespace ydk {
             const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision);
             const lys_module* load_module(ly_ctx* ctx, const std::string& module_name, const std::string& revision, const std::vector<std::string>& features, bool& new_module);
 
-         private:
+            void get_module_capabilities(ydk::path::Capability& capability);
+            void collect_features_from_imported_modules(const lys_module* module,
+                                                        std::set<std::pair<lys_module*, std::string>>& features);
             std::vector<ModelProvider*> model_providers;
             bool using_temp_directory;
             ModelCachingOption caching_option;
@@ -185,6 +188,14 @@ namespace ydk {
 
             virtual DataNode& create_datanode(const std::string& path, const std::string& value);
 
+            DataNode& create_action(const std::string& path);
+
+            std::shared_ptr<DataNode> operator()(const Session& session);
+
+            bool has_action_node() const;
+
+            std::string get_action_node_path() const;
+
             void set_value(const std::string& value);
 
             virtual std::string get_value() const;
@@ -276,6 +287,7 @@ namespace ydk {
 
             bool has_output_node() const;
 
+            std::string get_name() const;
 
             SchemaNodeImpl& schema_node;
             std::unique_ptr<DataNodeImpl> data_node;
@@ -288,8 +300,5 @@ namespace ydk {
     }
 
 }
-
-
-
 
 #endif /* YDK_PRIVATE_HPP */

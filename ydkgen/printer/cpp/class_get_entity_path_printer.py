@@ -21,7 +21,7 @@ class_path_printer.py
 
 """
 from ydkgen.api_model import Package
-from ydkgen.common import has_list_ancestor, is_top_level_class
+from ydkgen.common import has_list_ancestor, is_top_level_class, is_list_element
 
 
 def get_leafs_children(clazz, leafs, children):
@@ -200,6 +200,7 @@ class GetSegmentPathPrinter(object):
 
 
     def _print_get_ydk_segment_path_body(self, clazz):
+        self.ctx.writeln('std::ostringstream path_buffer;')
         path='"'
         if clazz.owner is not None:
             if isinstance(clazz.owner, Package):
@@ -207,28 +208,22 @@ class GetSegmentPathPrinter(object):
             elif clazz.owner.stmt.i_module.arg != clazz.stmt.i_module.arg:
                 path+=clazz.stmt.i_module.arg + ':'
 
-        path+= clazz.stmt.arg
-        path+='"'
-        predicates = ''
-        insert_token = ' <<'
-        key_props = clazz.get_key_props()
-        for key_prop in key_props:
-            predicates += insert_token
-            predicates += '"['
-            if key_prop.stmt.i_module.arg != clazz.stmt.i_module.arg:
-                predicates += key_prop.stmt.i_module.arg
-                predicates += ':'
-            predicates += key_prop.stmt.arg + '='
-            predicates+= "'"
-            predicates+='"'
-            predicates += insert_token
-            predicates += ('%s') % key_prop.name + insert_token
-            predicates += '"'
-            predicates += "'"
-            predicates += ']"'
+        path+= clazz.stmt.arg + '";'
+        self.ctx.writeln('path_buffer << %s' % (path))
 
-        self.ctx.writeln('std::ostringstream path_buffer;')
-        self.ctx.writeln('path_buffer << %s%s;' % (path, predicates))
+        key_props = clazz.get_key_props()
+        if len(key_props) > 0:
+            for key_prop in key_props:
+                predicate = ''
+                if key_prop.stmt.i_module.arg != clazz.stmt.i_module.arg:
+                    predicate += key_prop.stmt.i_module.arg
+                    predicate += ':'
+                predicate += key_prop.stmt.arg
+                self.ctx.writeln('ADD_KEY_TOKEN(%s, "%s");' % (key_prop.name, predicate))
+        elif is_list_element(clazz):
+            # list element with no keys
+            predicate = '"[" << get_ylist_key() << "]";'
+            self.ctx.writeln('path_buffer << %s' % (predicate))
         self.ctx.writeln('return path_buffer.str();')
 
     def _print_get_ydk_segment_path_trailer(self, clazz):

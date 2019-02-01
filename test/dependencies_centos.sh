@@ -19,40 +19,14 @@
 #
 # ------------------------------------------------------------------
 
-RED="\033[0;31m"
-NOCOLOR="\033[0m"
-
 function print_msg {
-    echo -e "${RED}*** $(date) *** dependencies_centos.sh | $1${NOCOLOR}"
-}
-
-function install_dependencies {
-    print_msg "Installing dependencies"
-
-    yum update -y > /dev/null
-    yum install epel-release -y > /dev/null
-    yum install https://centos7.iuscommunity.org/ius-release.rpm -y > /dev/null
-    yum install git which libxml2-devel libxslt-devel libssh-devel libtool gcc-c++ pcre-devel \
-                cmake3 wget curl-devel unzip python-devel python-pip make go java sudo \
-                python36u-devel python36u-pip -y  \
-                > /dev/null
-
-     print_msg "Installing gcc5"
-     yum install centos-release-scl -y > /dev/null
-     yum install devtoolset-4-gcc* -y > /dev/null
-
-     ln -sf /opt/rh/devtoolset-4/root/usr/bin/gcc /usr/bin/cc
-     ln -sf /opt/rh/devtoolset-4/root/usr/bin/g++ /usr/bin/c++
-
-     which gcc
-     gcc --version
-     print_msg "Done installing gcc5"
+    echo -e "${MSG_COLOR}*** $(date) *** dependencies_centos.sh | $@ ${NOCOLOR}"
 }
 
 function install_confd {
     print_msg "Installing confd"
 
-    wget https://github.com/CiscoDevNet/ydk-gen/files/562538/confd-basic-6.2.linux.x86_64.zip
+    wget https://github.com/CiscoDevNet/ydk-gen/files/562538/confd-basic-6.2.linux.x86_64.zip &> /dev/null
     unzip confd-basic-6.2.linux.x86_64.zip
     ./confd-basic-6.2.linux.x86_64.installer.bin ../confd
 }
@@ -60,7 +34,7 @@ function install_confd {
 function install_openssl {
     print_msg "Installing openssl 0.1.0u for confd"
 
-    wget https://www.openssl.org/source/openssl-1.0.1u.tar.gz
+    wget https://www.openssl.org/source/openssl-1.0.1u.tar.gz &> /dev/null
     tar -xvzf openssl-1.0.1u.tar.gz > /dev/null
     cd openssl-1.0.1u
     ./config shared  > /dev/null && make all > /dev/null
@@ -77,8 +51,13 @@ function install_fpm {
 }
 
 ########################## EXECUTION STARTS HERE #############################
+# Terminal colors
+NOCOLOR="\033[0m"
+YELLOW='\033[1;33m'
+MSG_COLOR=$YELLOW
 
-install_dependencies
+./test/dependencies_centos_basic.sh
+
 install_confd
 install_openssl
-install_fpm
+#install_fpm

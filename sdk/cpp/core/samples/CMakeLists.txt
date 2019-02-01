@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.0.0)
 cmake_policy(SET CMP0048 NEW)
 
 set(YDK_CORE_SAMPLES_DESCRIPTION "Samples")
 
-set(samples bgp bgp_gnmi)
+set(samples bgp)
 link_libraries(${CMAKE_THREAD_LIBS_INIT})
 foreach(sample IN LISTS samples)
     add_executable(${sample} ${sample}.cpp)
@@ -12,4 +12,3 @@ foreach(sample IN LISTS samples)
     target_link_libraries(${sample} ydk ${GRPC_GRPC++_LIBRARY})
 
 endforeach(sample)
-

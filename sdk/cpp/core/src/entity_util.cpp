@@ -32,85 +32,6 @@ using namespace std;
 
 namespace ydk
 {
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// gNMI path utils
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-static void parse_entity_children(map<string, shared_ptr<Entity>> & children, vector<PathElem> & path_container);
-static void parse_entity(Entity& entity, vector<PathElem> & path_container);
-
-PathKey::PathKey(const std::string & name, const std::string & value)
-        : name(name), value(value)
-{
-}
-
-PathElem::PathElem(const std::string & path, std::vector<PathKey> keys)
-        : path(path), keys(keys)
-{
-}
-
-static void parse_entity(Entity& entity, vector<PathElem> & path_container)
-{
-    EntityPath path = get_entity_path(entity, entity.parent);
-    auto s = entity.get_segment_path();
-    vector<PathKey> keys;
-    YLOG_DEBUG("Got path {}", s);
-    auto p = s.find("[");
-    if(p != std::string::npos)
-    {
-        s = s.substr(0, p);
-        for(const pair<string, LeafData> & name_value : path.value_paths)
-        {
-            LeafData leaf_data = name_value.second;
-            if(leaf_data.is_set)
-            {
-                YLOG_DEBUG("Creating key {} with value: '{}'", name_value.first, leaf_data.value);
-                PathKey key{name_value.first, leaf_data.value};
-                keys.push_back(key);
-            }
-         }
-    }
-
-    path_container.push_back({s, keys});
-    auto c = entity.get_children();
-    parse_entity_children(c, path_container);
-}
-
-static void parse_entity_children(map<string, shared_ptr<Entity>> & children, vector<PathElem> & path_container)
-{
-    YLOG_DEBUG("Children count: {}", children.size());
-    for(auto const& child : children)
-    {
-        if(child.second == nullptr)
-            continue;
-        YLOG_DEBUG("==================");
-        YLOG_DEBUG("Looking at child '{}': {}",child.first, get_entity_path(*(child.second), child.second->parent).path);
-        if(child.second->has_operation() || child.second->has_data() || child.second->is_presence_container)
-            parse_entity(*(child.second), path_container);
-        else
-            YLOG_DEBUG("Child has no data and no operations");
-    }
-}
-
-void parse_entity_to_prefix_and_paths(Entity& entity, pair<string, string> & prefix, vector<PathElem> & path_container)
-{
-    EntityPath root_path = get_entity_path(entity, nullptr);
-    auto s = root_path.path;
-    YLOG_DEBUG("Got root path: {}", s);
-    auto p = s.find(":");
-    if(p != std::string::npos)
-    {
-        auto mod = s.substr(0, p);
-        auto con = s.substr(p+1);
-        prefix = make_pair(mod, con);
-        YLOG_DEBUG("Got prefix: {}, {}", prefix.first, prefix.second);
-    }
-    auto c = entity.get_children();
-    parse_entity_children(c, path_container);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Entity utils
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::string get_relative_entity_path(const Entity* current_node, const Entity* ancestor, const std::string & path)
 {
@@ -118,7 +39,7 @@ std::string get_relative_entity_path(const Entity* current_node, const Entity* a
     path_buffer << path;
     if(ancestor == nullptr)
     {
-        throw(YCPPInvalidArgumentError{"ancestor should not be null."});
+        throw(YInvalidArgumentError{"ancestor should not be null."});
     }
     auto p = current_node->parent;
     std::vector<Entity*> parents {};
@@ -128,7 +49,7 @@ std::string get_relative_entity_path(const Entity* current_node, const Entity* a
     }
 
     if (p == nullptr) {
-        throw(YCPPInvalidArgumentError{"parent is not in the ancestor hierarchy."});
+        throw(YInvalidArgumentError{"parent is not in the ancestor hierarchy."});
     }
 
     std::reverse(parents.begin(), parents.end());
@@ -176,7 +97,7 @@ static bool is_absolute_path(Entity* ancestor)
 //
 // @param[in] parent The ancestor relative to which the path is calculated or nullptr
 // @return EntityPath
-// @throws YCPPInvalidArgumentError if the parent is invalid
+// @throws YInvalidArgumentError if the parent is invalid
 
 const EntityPath get_entity_path(const Entity & entity, Entity* ancestor)
 {
@@ -185,7 +106,7 @@ const EntityPath get_entity_path(const Entity & entity, Entity* ancestor)
     {
         if(entity.has_list_ancestor)
         {
-            throw(YCPPInvalidArgumentError{"ancestor for entity cannot be nullptr as one of the ancestors is a list. Path: "+entity.get_segment_path()});
+            throw(YInvalidArgumentError{"ancestor for entity cannot be nullptr as one of the ancestors is a list. Path: "+entity.get_segment_path()});
         }
         auto a = entity.get_absolute_path();
         if(a.size() == 0)
@@ -201,7 +122,7 @@ const EntityPath get_entity_path(const Entity & entity, Entity* ancestor)
     {
         if(entity.is_top_level_class)
         {
-            throw(YCPPInvalidArgumentError{"ancestor has to be nullptr for top-level node. Path: "+entity.get_segment_path()});
+            throw(YInvalidArgumentError{"ancestor has to be nullptr for top-level node. Path: "+entity.get_segment_path()});
         }
         path_buffer << get_relative_entity_path(&entity, ancestor, path_buffer.str());
     }

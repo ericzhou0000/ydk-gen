@@ -25,123 +25,216 @@ The YANG Development Kit (YDK) is a Software Development Kit that provides API's
 
 ## How to Install
 
-You can install YDK-Cpp on macOS or Linux.  It is not currently supported on Windows.
+You can install YDK-Cpp on MacOS or Linux.  It is not currently supported on Windows.
 
 ### System Requirements
-**Linux**  
-Ubuntu (Debian-based) - The following packages must be present in your system before installing YDK-Cpp:
 
-If installing from prebuilt binary:
+#### Linux
+##### Ubuntu (Debian-based)
+
+The following packages must be present in your system before installing YDK-Cpp:
+
 ```
-$ sudo apt-get install gdebi-core libtool-bin
-```
-If building from source:
-```
-$ sudo apt-get install libcurl4-openssl-dev libpcre3-dev libssh-dev libxml2-dev libxslt1-dev libtool-bin cmake
+$ sudo apt-get install gdebi-core python3-dev python-dev libtool-bin
+$ sudo apt-get install libcurl4-openssl-dev libpcre3-dev libssh-dev libxml2-dev libxslt1-dev cmake
 ```
 
-Centos (Fedora-based) - The following packages must be present in your system before installing YDK-Cpp:
+Install gcc-5 for Xenial (Ubuntu 16.04.4):
 
-If installing from prebuilt binary:
 ```
-$ sudo yum install epel-release
-$ sudo yum install libssh-devel gcc-c++
+$ # Upgrade compiler to gcc 5.*
+$ sudo apt-get install gcc-5 g++-5 -y > /dev/null
+$ sudo ln -sf /usr/bin/g++-5 /usr/bin/c++
+$ sudo ln -sf /usr/bin/gcc-5 /usr/bin/cc
 ```
-If building from source:
+
+#### Centos (Fedora-based)
+
+The following packages must be present in your system before installing YDK-Cpp:
+
 ```
 $ sudo yum install epel-release
 $ sudo yum install libxml2-devel libxslt-devel libssh-devel libtool gcc-c++ pcre-devel cmake
+
+# Install gcc-5 and g++-5
+$ yum install centos-release-scl -y > /dev/null
+$ yum install devtoolset-4-gcc* -y > /dev/null
+$ ln -sf /opt/rh/devtoolset-4/root/usr/bin/gcc /usr/bin/gcc
+$ ln -sf /opt/rh/devtoolset-4/root/usr/bin/g++ /usr/bin/g++
 ```
 
-**Mac**  
+#### Mac OS
+
 It is recommended to install [homebrew](http://brew.sh) and Xcode command line tools on your system before installing YDK-Cpp:
+
 ```
 $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 $ brew install pkg-config libssh libxml2 xml2 curl pcre cmake
 $ xcode-select --install
 ```
 
+#### Libssh installation
+
+Please note that libssh-0.8.0 `does not support <http://api.libssh.org/master/libssh_tutor_threads.html>`_ separate threading library, 
+which is required for YDK. Therefore, if after installation of libssh package you find that the `libssh_threads.a` library is missing, 
+please downgrade the installation of libssh to version 0.7.6, or upgrade to 0.8.1 or higher. Example:
+
+```
+$ wget https://git.libssh.org/projects/libssh.git/snapshot/libssh-0.7.6.tar.gz
+$ tar zxf libssh-0.7.6.tar.gz && rm -f libssh-0.7.6.tar.gz
+$ mkdir libssh-0.7.6/build && cd libssh-0.7.6/build
+$ cmake ..
+$ sudo make install
+```
+
+### gNMI Requirements
+
+In order to enable YDK support for gNMI protocol, which is optional, the following third party software must be installed prior to gNMI YDK component installation.
+
+#### Install protobuf and protoc
+
+```
+    wget https://github.com/google/protobuf/releases/download/v3.5.0/protobuf-cpp-3.5.0.zip
+    unzip protobuf-cpp-3.5.0.zip
+    cd protobuf-3.5.0
+    ./configure
+    make
+    make check
+    sudo make install
+    sudo ldconfig
+```
+
+#### Install gRPC
+
+```
+    git clone -b v1.9.1 https://github.com/grpc/grpc
+    cd grpc
+    git submodule update --init
+    make
+    sudo make install
+    sudo ldconfig
+    cd -
+```
+
+#### Run-time environment
+
+There is an open issue with gRPC on Centos/Fedora, which requires an extra step before running any YDK gNMI application. See this issue on `GRPC GitHub <https://github.com/grpc/grpc/issues/10942#issuecomment-312565041>`_ 
+for details. As a workaround, the YDK based application runtime environment must include setting of `LD_LIBRARY_PATH` variable:
+
+```
+    PROTO="/Your-Protobuf-and-Grpc-installation-directory"
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PROTO/grpc/libs/opt:$PROTO/protobuf-3.5.0/src/.libs:/usr/local/lib64
+```
+
 ### Quick Install
 #### Linux
 ##### Ubuntu (Debian-based)
-You can install the latest `libydk` `core` package using prebuilt binaries:
+
+You can install the latest YDK core package using prebuilt binaries for Xenial (Ubuntu 16.04.4) and Bionic (Ubuntu 18.04.1) distributions. 
+For other Ubuntu distributions it is recommended to build core libraries from source.
+
+For Xenial:
+
 ```
-$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.6.3/libydk_0.6.3-1_amd64.deb
-$ sudo gdebi libydk_0.6.3-1_amd64.deb
+$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.8.1/xenial/libydk_0.8.1-1_amd64.deb
+$ sudo gdebi libydk_0.8.1-1_amd64.deb
 ```
-To install the `ietf` package using prebuilt binaries:
+
+For Bionic:
+
 ```
-$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.6.3/libydk-ietf_0.1.3-1_amd64.deb
-$ sudo gdebi libydk-ietf_0.1.3-1_amd64.deb
+$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.8.1/bionic/libydk_0.8.1-1_amd64.deb
+$ sudo gdebi libydk_0.8.1-1_amd64.deb
 ```
-Similarly other model bundle packages listed [here](http://devhub.cisco.com/artifactory/webapp/#/artifacts/browse/tree/General/debian-ydk/0.6.3) can be installed.
 
 ##### Centos (Fedora-based)
-You can install the latest `libydk` `core` package using prebuilt binaries:
-```
-$ sudo yum install https://devhub.cisco.com/artifactory/rpm-ydk/0.6.3/libydk-0.6.3-1.x86_64.rpm
-```
-To install the `ietf` package using prebuilt binaries:
-```
-$ sudo yum install https://devhub.cisco.com/artifactory/rpm-ydk/0.6.3/libydk-ietf-0.1.3-1.x86_64.rpm
-```
-Similarly other model bundle packages listed [here](http://devhub.cisco.com/artifactory/webapp/#/artifacts/browse/tree/General/rpm-ydk/0.6.3) can be installed.
 
-#### macOS  
-You can install the latest `libydk` `core` package using prebuilt binaries:
-```
-$ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.6.3/libydk-0.6.3-Darwin.pkg
-$ sudo installer -pkg libydk-0.6.3-Darwin.pkg -target /
-```
-To install the `ietf` package using prebuilt binaries:
-```
-$ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.6.3/libydk-ietf-0.1.3-Darwin.pkg
-$ sudo installer -pkg libydk-ietf-0.1.3-Darwin.pkg -target /
-```
-Similarly other model bundle packages listed [here](http://devhub.cisco.com/artifactory/webapp/#/artifacts/browse/tree/General/osx-ydk/0.6.3) can be installed.
+You can install the latest YDK core package using prebuilt binaries:
 
-####Installing from source
+```
+$ sudo yum install https://devhub.cisco.com/artifactory/rpm-ydk/0.8.1/libydk-0.8.1-1.x86_64.rpm
+```
+
+#### MacOS  
+
+You can install the latest YDK core package using prebuilt binaries:
+
+```
+$ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.8.1/libydk-0.8.1-Darwin.pkg
+$ sudo installer -pkg libydk-0.8.1-Darwin.pkg -target /
+```
+
+### gNMI Service Installation
+
+#### Install gNMI service library
+
+For Ubuntu/Xenial:
+
+```
+$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.8.1/xenial/libydk_gnmi_0.4.0-1_amd64.deb
+$ sudo gdebi libydk_gnmi_0.4.0-1_amd64.deb
+```
+
+For Ubuntu/Bionic:
+
+```
+$ wget https://devhub.cisco.com/artifactory/debian-ydk/0.8.1/bionic/libydk_gnmi_0.4.0-1_amd64.deb
+$ sudo gdebi libydk_gnmi_0.4.0-1_amd64.deb
+```
+
+For MacOS:
+
+```
+$ curl -O https://devhub.cisco.com/artifactory/osx-ydk/0.8.1/libydk_gnmi-0.4.0-Darwin.pkg
+$ sudo installer -pkg libydk_gnmi-0.4.0-Darwin.pkg -target /
+```
+
+### Installing from source
 #### Building YDK
-YDK uses ``cmake`` as the build system of choice. To install the ``core`` package, execute:
+
+YDK uses ``cmake`` as the build system of choice. To install the core package, execute:
+
 ```
-$ ydk-cpp$ cd core/ydk
-$ core$ mkdir build && cd build
-$ build$ cmake .. && make
-$ build$ sudo make install
+ydk-cpp$ cd core/ydk
+core$ mkdir build && cd build
+build$ cmake .. && make
+build$ sudo make install
 ```
 
-Once you have installed the ``core`` package, you can install one or more model bundles.  Note that some bundles have dependencies on other bundles.  Those dependencies are captured in the bundle packages used for quick installation. To install the `ietf` bundle, execute:
+Once you have installed the core package, you can install one or more model bundles.  Note that some bundles have dependencies on other bundles.  Those dependencies are captured in the bundle packages used for quick installation. To install the `ietf` bundle, execute:
+
 ```
-$ core$ cd ../../ietf
-$ ietf$ mkdir build && cd build
-$ build$ cmake .. && make
-$ build$ sudo make install
+core$ cd ../../ietf
+ietf$ mkdir build && cd build
+build$ cmake .. && make
+build$ sudo make install
 ```
 
 To install the `openconfig` bundle, execute:
+
 ```
-$ ietf$ cd ../openconfig
-$ openconfig$ mkdir build && cd build
-$ build$ cmake .. && make
-$ build$ sudo make install
+ietf$ cd ../openconfig
+openconfig$ mkdir build && cd build
+build$ cmake .. && make
+build$ sudo make install
 ```
 
 To install the `cisco-ios-xr` bundle, execute:
+
 ```
-$ openconfig$ cd ../cisco-ios-xr
-$ cisco-ios-xr$ mkdir build && cd build
-$ build$ cmake .. && make
-$ build$ sudo make install
-$ build$ cd ../..
+openconfig$ cd ../cisco-ios-xr
+cisco-ios-xr$ mkdir build && cd build
+build$ cmake .. && make
+build$ sudo make install
 ```
 
 To install the `cisco-ios-xe` bundle, execute:
+
 ```
-$ openconfig$ cd ../cisco-ios-xe
-$ cisco-ios-xe$ mkdir build && cd build
-$ build$ cmake .. && make
-$ build$ sudo make install
-$ build$ cd ../..
+openconfig$ cd ../cisco-ios-xe
+cisco-ios-xe$ mkdir build && cd build
+build$ cmake .. && make
+build$ sudo make install
 ```
 
 ## Documentation and Support
@@ -152,4 +245,4 @@ $ build$ cd ../..
 - Additional YDK information can be found at [ydk.io](http://ydk.io)
 
 ## Release Notes
-The current YDK release version is 0.6.3 (alpha). YDK-Cpp is licensed under the Apache 2.0 License.
+The current YDK release version is 0.8.1. YDK-Cpp is licensed under the Apache 2.0 License.
